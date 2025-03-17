@@ -1,0 +1,41 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars.json
+crash.log
+crash.*.log
+*.tfplan
+.terragrunt-cache
+.terraform.lock.hcl
+.terraform.tfstate.lock.info
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ansible
+*.retry
+.vault_pass
+ansible.cfg
+inventory/*
+!inventory/example.ini
+!inventory/example.yml
+roles/*/files/certificates
+vault_vars.yml
+.ansible/tmp/*
+
+# General
+.env
+.envrc
+.DS_Store
+*.log
+*.bak
+*.swp
+*.tmp
+.vscode/
+.idea/
+
+# OS specific
+.DS_Store
+Thumbs.db
