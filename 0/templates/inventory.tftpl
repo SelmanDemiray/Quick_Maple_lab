@@ -1,0 +1,44 @@
+---
+all:
+  vars:
+    ansible_user: ${ssh_user}
+    ansible_ssh_private_key_file: ${ssh_key_path}
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+  children:
+    dhcp_servers:
+      hosts:
+%{ for name, c in containers ~}
+%{ if length(regexall("dhcp", name)) > 0 ~}
+        ${c.hostname}:
+          ansible_host: ${split("/", c.network[0].ip)[0]}
+%{ endif ~}
+%{ endfor ~}
+    opensearch_nodes:
+      hosts:
+%{ for name, c in containers ~}
+%{ if length(regexall("opensearch", name)) > 0 ~}
+        ${c.hostname}:
+          ansible_host: ${split("/", c.network[0].ip)[0]}
+%{ endif ~}
+%{ endfor ~}
+    pihole_servers:
+      hosts:
+%{ for name, c in containers ~}
+%{ if length(regexall("pihole", name)) > 0 ~}
+        ${c.hostname}:
+          ansible_host: ${split("/", c.network[0].ip)[0]}
+%{ endif ~}
+%{ endfor ~}
+    suricata_hosts:
+      hosts:
+%{ for name, c in containers ~}
+%{ if length(regexall("suricata", name)) > 0 ~}
+        ${c.hostname}:
+          ansible_host: ${split("/", c.network[0].ip)[0]}
+%{ endif ~}
+%{ endfor ~}
+  hosts:
+%{ for name, container in containers ~}
+    ${container.hostname}:
+      ansible_host: ${split("/", container.network[0].ip)[0]}
+%{ endfor ~}
