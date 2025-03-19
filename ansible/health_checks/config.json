@@ -1,0 +1,29 @@
+{
+  "slack": {
+    "enabled": true,
+    "auth_method": "webhook",
+    "webhook_url": "https://hooks.slack.com/services/YOUR_WEBHOOK_URL",
+    "channel": "#monitoring",
+    "username": "Infrastructure Monitor",
+    "icon_emoji": ":robot_face:"
+  },
+  "slack_app": {
+    "token": "",
+    "channel_id": "C0123456789"
+  },
+  "notifications": {
+    "critical_only": false,
+    "summary_interval": 6,
+    "show_healthy": true
+  },
+  "health_checks": {
+    "directory": "/home/ansible/retry/ansible/health_checks",
+    "max_age_hours": 1,
+    "hosts": [
+      "isc-dhcp-server",
+      "opensearch-dashboard",
+      "pihole",
+      "suricata-filebeat"
+    ]
+  }
+}

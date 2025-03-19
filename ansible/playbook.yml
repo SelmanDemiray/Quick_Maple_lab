@@ -1,0 +1,429 @@
+---
+# Main playbook for container provisioning
+- name: Configure SSH for all containers
+  hosts: all
+  gather_facts: no
+  become: yes
+  handlers:
+    - import_tasks: handlers/main.yml
+  tasks:
+    - name: Wait for SSH to become available
+      wait_for:
+        port: 22
+        host: "{{ ansible_host }}"
+        delay: 5
+        timeout: 60
+      delegate_to: localhost
+      become: no
+      
+    - name: Gather facts
+      setup:
+      
+    - name: Import SSH setup tasks
+      import_tasks: tasks/ssh_setup.yml
+
+    - name: Fix DNS resolution (pre-Pi-hole installation)
+      lineinfile:
+        path: /etc/resolv.conf
+        regexp: '^nameserver 192.168.0.102'
+        line: 'nameserver 8.8.8.8'
+        state: present
+      when: inventory_hostname in groups['pihole_servers'] or inventory_hostname in groups['suricata_hosts']
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install common packages
+      apt:
+        name:
+          - vim
+          - curl
+          - wget
+          - htop
+          - net-tools
+          - python3
+        state: present
+
+- name: Configure DHCP containers
+  hosts: dhcp_servers
+  become: yes
+  tasks:
+    - name: Install ISC DHCP server
+      apt:
+        name: isc-dhcp-server
+        state: present
+
+    - name: Create DHCP configuration file
+      copy:
+        content: |
+          option domain-name "example.org";
+          option domain-name-servers ns1.example.org, ns2.example.org;
+          default-lease-time 600;
+          max-lease-time 7200;
+          ddns-update-style none;
+          
+          # The subnet configuration
+          subnet 192.168.0.0 netmask 255.255.255.0 {
+            range 192.168.0.150 192.168.0.200;
+            option routers 192.168.0.1;
+            option domain-name-servers 192.168.0.102, 8.8.8.8;
+          }
+        dest: /etc/dhcp/dhcpd.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Configure DHCP service interfaces
+      copy:
+        content: |
+          # Configure which interface to listen on
+          INTERFACES="eth0"
+        dest: /etc/default/isc-dhcp-server
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart isc-dhcp-server
+
+    - name: Ensure DHCP service is started and enabled
+      systemd:
+        name: isc-dhcp-server
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+- name: Configure OpenSearch containers
+  hosts: opensearch_nodes
+  become: yes
+  vars:
+    opensearch_password: "{{ hostvars[inventory_hostname].password | default('MkB-{8Ab3sn2[@_hgWKK') }}"
+  tasks:
+    - name: Install Java
+      apt:
+        name: default-jre
+        state: present
+        
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - gnupg2
+          - curl
+        state: present
+        
+    - name: Add OpenSearch GPG key
+      apt_key:
+        url: https://artifacts.opensearch.org/publickeys/opensearch.pgp
+        state: present
+        
+    - name: Add OpenSearch repository
+      apt_repository:
+        repo: "deb https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt stable main"
+        state: present
+        update_cache: yes
+    
+    - name: Ensure system has enough memory
+      sysctl:
+        name: vm.max_map_count
+        value: '262144'
+        state: present
+        
+    - name: Install OpenSearch with no demo config
+      environment:
+        OPENSEARCH_INITIAL_ADMIN_PASSWORD: "{{ opensearch_password }}"
+        DISABLE_INSTALL_DEMO_CONFIG: "true"
+      apt:
+        name: opensearch
+        state: present
+        
+    - name: Configure OpenSearch network settings
+      lineinfile:
+        path: /etc/opensearch/opensearch.yml
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+      with_items:
+        - { regexp: '^network.host:', line: 'network.host: 0.0.0.0' }
+        - { regexp: '^discovery.type:', line: 'discovery.type: single-node' }
+        - { regexp: '^action.auto_create_index:', line: 'action.auto_create_index: true' }
+        - { regexp: '^plugins.security.disabled:', line: 'plugins.security.disabled: true' }
+      notify: restart opensearch
+        
+    - name: Set OpenSearch heap size
+      lineinfile:
+        path: /etc/opensearch/jvm.options
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+      with_items:
+        - { regexp: '^-Xms', line: '-Xms512m' }
+        - { regexp: '^-Xmx', line: '-Xmx512m' }
+      notify: restart opensearch
+        
+    - name: Set proper directory permissions for OpenSearch
+      file:
+        path: "{{ item.path }}"
+        owner: opensearch
+        group: opensearch
+        recurse: yes
+        state: directory
+        mode: '0750'
+      with_items:
+        - { path: '/etc/opensearch' }
+        - { path: '/var/lib/opensearch' }
+        - { path: '/var/log/opensearch' }
+      notify: restart opensearch
+        
+    - name: Start OpenSearch service
+      systemd:
+        name: opensearch
+        state: started
+        enabled: yes
+        daemon_reload: yes
+        
+    - name: Add OpenSearch Dashboard repository
+      apt_repository:
+        repo: "deb https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.x/apt stable main"
+        state: present
+        update_cache: yes
+        
+    - name: Install OpenSearch Dashboard
+      apt:
+        name: opensearch-dashboards
+        state: present
+        
+    - name: Configure OpenSearch Dashboard
+      lineinfile:
+        path: /etc/opensearch-dashboards/opensearch_dashboards.yml
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+      with_items:
+        - { regexp: '^server.host:', line: 'server.host: "0.0.0.0"' }
+        - { regexp: '^opensearch.hosts:', line: 'opensearch.hosts: ["https://localhost:9200"]' }
+        
+    - name: Start OpenSearch Dashboard service
+      systemd:
+        name: opensearch-dashboards
+        state: started
+        enabled: yes
+        
+    - name: Wait for OpenSearch to be available
+      uri:
+        url: https://localhost:9200
+        status_code: 200
+        validate_certs: no
+        user: admin
+        password: "{{ opensearch_password }}"
+        force_basic_auth: yes
+      register: result
+      until: result.status == 200
+      retries: 60
+      delay: 5
+      
+    - name: Wait for OpenSearch Dashboard to be available
+      wait_for:
+        port: 5601
+        delay: 10
+        timeout: 300
+
+- name: Configure Pi-hole containers
+  hosts: pihole_servers
+  become: yes
+  tasks:
+    - name: Install Pi-hole dependencies
+      apt:
+        name:
+          - curl
+          - dnsutils
+          - lighttpd
+          - php-cgi
+          - php-xml
+          - php-intl
+          - dhcpcd5
+        state: present
+
+    - name: Create Pi-hole directory
+      file:
+        path: /etc/pihole
+        state: directory
+        mode: '0755'
+
+    - name: Create Pi-hole setupVars.conf
+      copy:
+        content: |
+          PIHOLE_INTERFACE=eth0
+          IPV4_ADDRESS=192.168.0.102/24
+          IPV6_ADDRESS=
+          QUERY_LOGGING=true
+          INSTALL_WEB_SERVER=true
+          INSTALL_WEB_INTERFACE=true
+          LIGHTTPD_ENABLED=true
+          BLOCKING_ENABLED=true
+          DNSMASQ_LISTENING=local
+          PIHOLE_DNS_1=8.8.8.8
+          PIHOLE_DNS_2=8.8.4.4
+          WEBPASSWORD=admin
+        dest: /etc/pihole/setupVars.conf
+        mode: '0644'
+
+    - name: Download Pi-hole installer
+      get_url:
+        url: https://install.pi-hole.net
+        dest: /tmp/pihole_installer.sh
+        mode: '0755'
+
+    - name: Run Pi-hole installer (non-interactive)
+      environment:
+        PIHOLE_SKIP_OS_CHECK: "true"
+      shell: |
+        export USER=root
+        bash /tmp/pihole_installer.sh --unattended
+      args:
+        creates: /usr/local/bin/pihole
+      register: pihole_install
+      
+    - name: Reset Pi-hole password
+      command: pihole -a -p "admin"
+      when: pihole_install.changed
+
+    - name: Ensure Pi-hole service is started
+      systemd:
+        name: pihole-FTL
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      when: pihole_install.changed
+
+- name: Configure Suricata containers
+  hosts: suricata_hosts
+  become: yes
+  tasks:
+    - name: Install Suricata dependencies
+      apt:
+        name: 
+          - libpcre3
+          - libnet1
+          - libpcap-dev
+          - software-properties-common
+        state: present
+
+    - name: Add Suricata PPA repository
+      apt_repository:
+        repo: ppa:oisf/suricata-stable
+        state: present
+        update_cache: yes
+        
+    - name: Install Suricata
+      apt:
+        name: suricata
+        state: present
+        
+    - name: Create Suricata log directory
+      file:
+        path: /var/log/suricata
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+        
+    - name: Configure Suricata
+      copy:
+        content: |
+          # Suricata configuration file
+
+          # Main settings
+          vars:
+            # more specific is better for alert accuracy and performance
+            address-groups:
+              HOME_NET: "[192.168.0.0/16]"
+              EXTERNAL_NET: "!$HOME_NET"
+
+          # Network interface to listen on
+          af-packet:
+            - interface: eth0
+              cluster-id: 99
+              cluster-type: cluster_flow
+              defrag: yes
+              
+          # Analysis settings
+          app-layer:
+            protocols:
+              tls:
+                enabled: yes
+              http:
+                enabled: yes
+          
+          # Output configuration
+          outputs:
+            - eve-log:
+                enabled: yes
+                filetype: regular
+                filename: eve.json
+                types:
+                  - alert
+                  - http
+                  - dns
+                  - tls
+        dest: /etc/suricata/suricata.yaml
+        mode: '0644'
+        owner: root
+        group: root
+      notify: restart suricata
+
+    - name: Enable and start Suricata
+      systemd:
+        name: suricata
+        state: started
+        enabled: yes
+        daemon_reload: yes
+        
+    - name: Add Elastic repository key
+      apt_key:
+        url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+        state: present
+        
+    - name: Add Elastic repository
+      apt_repository:
+        repo: "deb https://artifacts.elastic.co/packages/7.x/apt stable main"
+        state: present
+        update_cache: yes
+        
+    - name: Install Filebeat
+      apt:
+        name: filebeat
+        state: present
+        
+    - name: Configure Filebeat to send logs to OpenSearch
+      copy:
+        content: |
+          filebeat.inputs:
+          - type: log
+            enabled: true
+            paths:
+              - /var/log/suricata/eve.json
+            json.keys_under_root: true
+            json.add_error_key: true
+
+          output.elasticsearch:
+            hosts: ["192.168.0.99:9200"]
+            protocol: https
+            username: "admin"
+            password: "MkB-{8Ab3sn2[@_hgWKK"
+            ssl.verification_mode: none
+
+          setup.template.settings:
+            index.number_of_shards: 1
+        dest: /etc/filebeat/filebeat.yml
+        mode: '0644'
+        owner: root
+        group: root
+      notify: restart filebeat
+        
+    - name: Enable and start Filebeat
+      systemd:
+        name: filebeat
+        state: started
+        enabled: yes
+        daemon_reload: yes

@@ -1,0 +1,354 @@
+---
+- name: Fix services on all containers
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Install common packages
+      apt:
+        name:
+          - net-tools
+          - curl
+          - wget
+          - python3
+          - python3-pip
+        state: present
+      ignore_errors: yes
+
+    # DHCP SERVER FIXES
+    - name: Fix DHCP server issues
+      block:
+        - name: Install DHCP server
+          apt:
+            name: isc-dhcp-server
+            state: present
+            
+        - name: Check if DHCP config exists
+          stat:
+            path: /etc/dhcp/dhcpd.conf
+          register: dhcp_conf_exists
+            
+        - name: Create DHCP configuration file
+          copy:
+            content: |
+              # DHCP Server Configuration
+              default-lease-time 600;
+              max-lease-time 7200;
+              authoritative;
+
+              subnet 192.168.0.0 netmask 255.255.255.0 {
+                range 192.168.0.150 192.168.0.200;
+                option routers 192.168.0.1;
+                option domain-name-servers 192.168.0.102, 8.8.8.8;
+                option domain-name "intern.local";
+              }
+            dest: /etc/dhcp/dhcpd.conf
+            mode: '0644'
+            owner: root
+            group: root
+          when: not dhcp_conf_exists.stat.exists
+            
+        - name: Set DHCP server interfaces
+          copy:
+            content: "INTERFACES=\"eth0\"\n"
+            dest: /etc/default/isc-dhcp-server
+            mode: '0644'
+            
+        - name: Ensure DHCP service is enabled and restarted
+          systemd:
+            name: isc-dhcp-server
+            state: restarted
+            enabled: yes
+            daemon_reload: yes
+      when: inventory_hostname == 'isc-dhcp-server'
+      ignore_errors: yes
+
+    # PI-HOLE FIXES
+    - name: Fix Pi-hole issues
+      block:
+        - name: Install Pi-hole dependencies
+          apt:
+            name:
+              - curl
+              - dnsutils
+            state: present
+            
+        - name: Check if Pi-hole is installed
+          stat:
+            path: /usr/local/bin/pihole
+          register: pihole_installed
+            
+        - name: Create Pi-hole directory if missing
+          file:
+            path: /etc/pihole
+            state: directory
+            mode: '0755'
+          when: not pihole_installed.stat.exists
+            
+        - name: Create Pi-hole setupVars.conf
+          copy:
+            content: |
+              PIHOLE_INTERFACE=eth0
+              IPV4_ADDRESS=192.168.0.102/24
+              IPV6_ADDRESS=
+              QUERY_LOGGING=true
+              INSTALL_WEB_SERVER=true
+              INSTALL_WEB_INTERFACE=true
+              LIGHTTPD_ENABLED=true
+              BLOCKING_ENABLED=true
+              DNSMASQ_LISTENING=local
+              PIHOLE_DNS_1=8.8.8.8
+              PIHOLE_DNS_2=8.8.4.4
+              WEBPASSWORD=admin
+            dest: /etc/pihole/setupVars.conf
+            mode: '0644'
+          when: not pihole_installed.stat.exists
+            
+        - name: Restart Pi-hole service if already installed
+          systemd:
+            name: pihole-FTL
+            state: restarted
+            enabled: yes
+            daemon_reload: yes
+          when: pihole_installed.stat.exists
+          ignore_errors: yes
+      when: inventory_hostname == 'pihole'
+      ignore_errors: yes
+
+    # OPENSEARCH FIXES
+    - name: Fix OpenSearch issues
+      block:
+        - name: Install Java
+          apt:
+            name: default-jre
+            state: present
+            
+        - name: Check OpenSearch installation
+          stat:
+            path: /usr/share/opensearch
+          register: opensearch_installed
+            
+        - name: Fix OpenSearch permissions
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: opensearch
+            group: opensearch
+            recurse: yes
+            mode: '0755'
+          with_items:
+            - /var/lib/opensearch
+            - /var/log/opensearch
+            - /etc/opensearch
+          ignore_errors: yes
+          when: opensearch_installed.stat.exists
+            
+        - name: Configure OpenSearch
+          copy:
+            content: |
+              network.host: 0.0.0.0
+              discovery.type: single-node
+              action.auto_create_index: true
+              
+              # Disable security plugin temporarily for troubleshooting
+              plugins.security.disabled: true
+              
+              # Memory settings
+              bootstrap.memory_lock: true
+              
+              # Path settings
+              path.data: /var/lib/opensearch
+              path.logs: /var/log/opensearch
+            dest: /etc/opensearch/opensearch.yml
+            owner: opensearch
+            group: opensearch
+            mode: '0644'
+          when: opensearch_installed.stat.exists
+          register: opensearch_config
+            
+        - name: Configure OpenSearch JVM settings
+          copy:
+            content: |
+              -Xms512m
+              -Xmx512m
+              -XX:+UseG1GC
+              -XX:G1ReservePercent=25
+              -XX:InitiatingHeapOccupancyPercent=30
+            dest: /etc/opensearch/jvm.options.d/heap.options
+            owner: opensearch
+            group: opensearch
+            mode: '0644'
+          when: opensearch_installed.stat.exists
+          register: opensearch_jvm
+            
+        - name: Restart OpenSearch service
+          systemd:
+            name: opensearch
+            state: restarted
+            enabled: yes
+            daemon_reload: yes
+          when: opensearch_installed.stat.exists and (opensearch_config.changed or opensearch_jvm.changed)
+            
+        - name: Configure OpenSearch Dashboard
+          copy:
+            content: |
+              server.host: "0.0.0.0"
+              server.port: 5601
+              opensearch.hosts: ["https://localhost:9200"]
+              opensearch.ssl.verificationMode: none
+              opensearch.username: "admin"
+              opensearch.password: "MkB-{8Ab3sn2[@_hgWKK"
+              logging.dest: stdout
+              opensearch.requestHeadersWhitelist: ["authorization", "securitytenant"]
+            dest: /etc/opensearch-dashboards/opensearch_dashboards.yml
+            mode: '0644'
+          when: opensearch_installed.stat.exists
+          register: dashboard_config
+            
+        - name: Restart OpenSearch Dashboard service
+          systemd:
+            name: opensearch-dashboards
+            state: restarted
+            enabled: yes
+            daemon_reload: yes
+          when: dashboard_config.changed
+      when: inventory_hostname == 'opensearch-dashboard'
+      ignore_errors: yes
+
+    # SURICATA AND FILEBEAT FIXES
+    - name: Fix Suricata and Filebeat issues
+      block:
+        - name: Install Suricata
+          apt:
+            name: suricata
+            state: present
+            
+        - name: Check if Suricata config exists
+          stat:
+            path: /etc/suricata/suricata.yaml
+          register: suricata_conf_exists
+            
+        - name: Configure Suricata interface
+          lineinfile:
+            path: /etc/suricata/suricata.yaml
+            regexp: '^\s+- interface:.*$'
+            line: '  - interface: eth0'
+            state: present
+          when: suricata_conf_exists.stat.exists
+          register: suricata_config
+            
+        - name: Create Suricata log directory
+          file:
+            path: /var/log/suricata
+            state: directory
+            mode: '0755'
+            
+        - name: Restart Suricata service
+          systemd:
+            name: suricata
+            state: restarted
+            enabled: yes
+            daemon_reload: yes
+          when: suricata_config.changed or not suricata_conf_exists.stat.exists
+            
+        - name: Install Filebeat
+          apt:
+            name: filebeat
+            state: present
+            
+        - name: Check if Filebeat config exists
+          stat:
+            path: /etc/filebeat/filebeat.yml
+          register: filebeat_conf_exists
+            
+        - name: Configure Filebeat
+          copy:
+            content: |
+              filebeat.inputs:
+              - type: log
+                enabled: true
+                paths:
+                  - /var/log/suricata/eve.json
+                json.keys_under_root: true
+                json.add_error_key: true
+                
+              output.elasticsearch:
+                hosts: ["192.168.0.99:9200"]
+                protocol: https
+                username: "admin"
+                password: "MkB-{8Ab3sn2[@_hgWKK"
+                ssl.verification_mode: none
+                
+              setup.template.settings:
+                index.number_of_shards: 1
+            dest: /etc/filebeat/filebeat.yml
+            mode: '0644'
+          when: not filebeat_conf_exists.stat.exists
+          register: filebeat_config
+            
+        - name: Restart Filebeat service
+          systemd:
+            name: filebeat
+            state: restarted
+            enabled: yes
+            daemon_reload: yes
+          when: filebeat_config.changed
+      when: inventory_hostname == 'suricata-filebeat'
+      ignore_errors: yes
+
+    # VERIFY SERVICES ARE RUNNING
+    - name: Verify services are running
+      block:
+        - name: Get service status for DHCP
+          systemd:
+            name: isc-dhcp-server
+          register: dhcp_status
+          when: inventory_hostname == 'isc-dhcp-server'
+          
+        - name: Get service status for Pi-hole
+          systemd:
+            name: pihole-FTL
+          register: pihole_status
+          when: inventory_hostname == 'pihole'
+          
+        - name: Get service status for OpenSearch
+          systemd:
+            name: opensearch
+          register: opensearch_status
+          when: inventory_hostname == 'opensearch-dashboard'
+          
+        - name: Get service status for OpenSearch Dashboard
+          systemd:
+            name: opensearch-dashboards
+          register: dashboard_status
+          when: inventory_hostname == 'opensearch-dashboard'
+          
+        - name: Get service status for Suricata
+          systemd:
+            name: suricata
+          register: suricata_status
+          when: inventory_hostname == 'suricata-filebeat'
+          
+        - name: Get service status for Filebeat
+          systemd:
+            name: filebeat
+          register: filebeat_status
+          when: inventory_hostname == 'suricata-filebeat'
+          
+        - name: Display service status
+          debug:
+            msg: "Service status for {{ inventory_hostname }}: {{ item.service }} is {{ item.status }}"
+          loop:
+            - { service: 'isc-dhcp-server', status: "{{ dhcp_status.status if dhcp_status is defined else 'not applicable' }}" }
+            - { service: 'pihole-FTL', status: "{{ pihole_status.status if pihole_status is defined else 'not applicable' }}" }
+            - { service: 'opensearch', status: "{{ opensearch_status.status if opensearch_status is defined else 'not applicable' }}" }
+            - { service: 'opensearch-dashboards', status: "{{ dashboard_status.status if dashboard_status is defined else 'not applicable' }}" }
+            - { service: 'suricata', status: "{{ suricata_status.status if suricata_status is defined else 'not applicable' }}" }
+            - { service: 'filebeat', status: "{{ filebeat_status.status if filebeat_status is defined else 'not applicable' }}" }
+          when: item.status != 'not applicable'
+      ignore_errors: yes

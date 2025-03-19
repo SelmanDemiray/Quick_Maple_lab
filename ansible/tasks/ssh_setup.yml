@@ -1,0 +1,23 @@
+---
+- name: Ensure SSH is installed
+  apt:
+    name: openssh-server
+    state: present
+
+- name: Configure SSH
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+  with_items:
+    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin prohibit-password' }
+    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication yes' }
+    - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
+  notify: restart sshd
+
+- name: Ensure SSH service is running
+  systemd:
+    name: ssh
+    state: started
+    enabled: yes

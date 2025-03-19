@@ -1,0 +1,2 @@
+# Run health check every 30 minutes
+*/30 * * * * /home/ansible/retry/ansible/health_checks/run_health_check.sh >> /home/ansible/retry/ansible/health_checks/cron.log 2>&1

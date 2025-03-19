@@ -1,0 +1,113 @@
+---
+- name: Collect health status from all containers
+  hosts: all
+  gather_facts: yes
+  become: yes
+  tasks:
+    - name: Get system uptime
+      shell: uptime
+      register: uptime_result
+      changed_when: false
+
+    - name: Get memory usage
+      shell: free -m
+      register: memory_result
+      changed_when: false
+
+    - name: Get disk usage
+      shell: df -h /
+      register: disk_result
+      changed_when: false
+
+    - name: Check if services are running
+      service_facts:
+
+    - name: Set host-specific service checks
+      set_fact:
+        service_checks: >-
+          {% if inventory_hostname == 'isc-dhcp-server' %}
+          ['isc-dhcp-server']
+          {% elif inventory_hostname == 'opensearch-dashboard' %}
+          ['opensearch', 'opensearch-dashboards']
+          {% elif inventory_hostname == 'pihole' %}
+          ['pihole-FTL']
+          {% elif inventory_hostname == 'suricata-filebeat' %}
+          ['suricata', 'filebeat']
+          {% else %}
+          []
+          {% endif %}
+
+    # Add debug task to see what services are available
+    - name: Debug available services 
+      debug:
+        msg: "Service checks to run: {{ service_checks }}"
+      when: ansible_facts.services is defined
+
+    # Initialize service status dictionary
+    - name: Initialize service status dictionary
+      set_fact:
+        service_status: {}
+
+    # Check each service individually
+    - name: Get service status for each service
+      shell: "systemctl is-active {{ item }} || echo 'inactive'"
+      register: service_status_result
+      changed_when: false
+      loop: "{{ service_checks }}"
+      ignore_errors: yes
+
+    # Process each service status
+    - name: Process each service status
+      set_fact:
+        service_status: "{{ service_status | combine({item.item: (item.stdout == 'active')}) }}"
+      with_items: "{{ service_status_result.results }}"
+      when: item.item is defined
+
+    - name: Check network connectivity
+      shell: "ping -c 1 8.8.8.8 > /dev/null && echo success || echo fail"
+      register: network_check
+      changed_when: false
+      ignore_errors: yes
+
+    # Get details for each service individually
+    - name: Get detailed service information for each service
+      shell: "systemctl status {{ item }}"
+      register: service_details
+      changed_when: false
+      loop: "{{ service_checks }}"
+      ignore_errors: yes
+
+    # Debug the service status 
+    - name: Debug service status results
+      debug: 
+        msg: "Service status: {{ service_status }}"
+
+    - name: Collect all status data
+      set_fact:
+        health_status:
+          hostname: "{{ inventory_hostname }}"
+          uptime: "{{ uptime_result.stdout }}"
+          memory: "{{ memory_result.stdout_lines }}"
+          disk: "{{ disk_result.stdout_lines }}"
+          services: "{{ service_status }}"
+          network: "{{ network_check.stdout == 'success' }}"
+          ip: "{{ ansible_host }}"
+          last_check: "{{ ansible_date_time.iso8601 }}"
+
+    - name: Create local directory for status files
+      delegate_to: localhost
+      file:
+        path: "/home/ansible/retry/ansible/health_checks"
+        state: directory
+        mode: '0755'
+      become: no
+      changed_when: false
+
+    - name: Store health status locally
+      delegate_to: localhost
+      copy:
+        content: "{{ health_status | to_nice_json }}"
+        dest: "/home/ansible/retry/ansible/health_checks/{{ inventory_hostname }}_status.json"
+        mode: '0644'
+      become: no
+      changed_when: false

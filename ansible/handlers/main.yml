@@ -1,0 +1,50 @@
+---
+# Handler definitions
+- name: restart sshd
+  systemd:
+    name: sshd
+    state: restarted
+    daemon_reload: yes
+
+- name: restart ssh
+  systemd:
+    name: ssh
+    state: restarted
+    daemon_reload: yes
+
+- name: restart isc-dhcp-server
+  systemd:
+    name: isc-dhcp-server
+    state: restarted
+    daemon_reload: yes
+
+- name: restart opensearch
+  systemd:
+    name: opensearch
+    state: restarted
+    daemon_reload: yes
+
+- name: restart opensearch-dashboards
+  systemd:
+    name: opensearch-dashboards
+    state: restarted
+    daemon_reload: yes
+
+- name: restart pihole-FTL
+  systemd:
+    name: pihole-FTL
+    state: restarted
+    daemon_reload: yes
+  ignore_errors: yes  # Pi-hole might not be fully installed yet
+
+- name: restart suricata
+  systemd:
+    name: suricata
+    state: restarted
+    daemon_reload: yes
+
+- name: restart filebeat
+  systemd:
+    name: filebeat
+    state: restarted
+    daemon_reload: yes
