@@ -1,0 +1,52 @@
+# Terraform files
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+*.tfstate.lock.info
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+.terraform.lock.hcl
+
+# SSH keys and passwords
+**/id_rsa*
+**/ssh_passwords*.json
+**/ssh_access*.json
+**/.ssh/
+**/ansible/ssh_*
+**/*.pem
+**/*.key
+
+# Ansible files
+*.retry
+**/ansible/.ansible/
+**/ansible/*.log
+**/ansible/.ansible_galaxy
+**/ansible/collections/
+
+# OS files
+.DS_Store
+Thumbs.db
+.directory
+.Trash-*
+*.bak
+*~
+*.swp
+*.tmp
+
+# Editor directories and files
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+.project
+.classpath
+*.iml
+*.iws
+*.ipr
