@@ -1,0 +1,74 @@
+---
+# Tasks for setting up Suricata IDS
+
+- name: Install Suricata dependencies
+  apt:
+    name:
+      - software-properties-common
+      - apt-transport-https
+      - curl
+      - gnupg2
+    state: present
+    update_cache: yes
+
+- name: Add Suricata repository
+  apt_repository:
+    repo: ppa:oisf/suricata-stable
+    state: present
+    update_cache: yes
+  when: ansible_distribution == 'Ubuntu'
+
+- name: Install Suricata
+  apt:
+    name: suricata
+    state: present
+    update_cache: yes
+
+- name: Create Suricata log directory
+  file:
+    path: "{{ suricata_log_path }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Configure Suricata
+  template:
+    src: templates/suricata.yaml.j2
+    dest: /etc/suricata/suricata.yaml
+    owner: root
+    group: root
+    mode: '0644'
+  register: suricata_config
+  ignore_errors: true
+
+- name: Enable and start Suricata service
+  systemd:
+    name: suricata
+    enabled: yes
+    state: started
+
+- name: Update Suricata rules
+  command: suricata-update
+  changed_when: false
+
+- name: Create Suricata interface config
+  copy:
+    content: |
+      # Suricata interface configuration
+      IFACE=eth0
+      OPTIONS="--af-packet=eth0 --user suricata"
+    dest: /etc/default/suricata
+    owner: root
+    group: root
+    mode: '0644'
+  register: suricata_interface_config
+  ignore_errors: true
+
+# Directly restart Suricata when configuration changes
+- name: Restart Suricata after configuration changes
+  systemd:
+    name: suricata
+    state: restarted
+  when: suricata_config.changed or suricata_interface_config.changed
+  ignore_errors: true

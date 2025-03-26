@@ -1,0 +1,5 @@
+- module: suricata
+  eve:
+    enabled: true
+    var.paths: ["{{ suricata_eve_json }}"]
+    var.input: file

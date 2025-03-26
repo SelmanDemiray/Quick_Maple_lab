@@ -1,0 +1,32 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - {{ suricata_eve_json }}
+  json.keys_under_root: true
+  json.add_error_key: true
+  json.message_key: log
+
+filebeat.modules:
+  - module: suricata
+    enabled: true
+    var.paths: ["{{ suricata_eve_json }}"]
+    var.input: file
+
+output.elasticsearch:
+  hosts: ["{{ opensearch_host }}:{{ opensearch_port }}"]
+  username: "admin"
+  password: "{{ opensearch_password }}"
+  protocol: "http"
+
+setup.template.name: "filebeat"
+setup.template.pattern: "filebeat-*"
+setup.ilm.enabled: false
+
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644

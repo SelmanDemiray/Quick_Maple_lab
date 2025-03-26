@@ -1,0 +1,73 @@
+---
+# Tasks for setting up ISC DHCP server
+
+- name: Check network connectivity
+  command: ping -c 1 8.8.8.8
+  register: ping_result
+  ignore_errors: true
+  changed_when: false
+
+# Install packages with error handling
+- name: Install DHCP server with fallbacks
+  block:
+    - name: Install ISC DHCP server
+      apt:
+        name: isc-dhcp-server
+        state: present
+        update_cache: yes
+      register: dhcp_install
+  rescue:
+    - name: Alternate method - Update APT sources manually
+      shell: apt-get update --allow-releaseinfo-change
+      ignore_errors: true
+
+    - name: Alternate method - Install DHCP server without cache update
+      apt:
+        name: isc-dhcp-server
+        state: present
+        update_cache: no
+      register: dhcp_install_rescue
+      ignore_errors: true
+
+# Continue only if DHCP server installation was successful
+- name: Check if DHCP server is installed
+  stat:
+    path: /usr/sbin/dhcpd
+  register: dhcpd_stat
+
+- name: Configure DHCP server network interface
+  template:
+    src: templates/isc-dhcp-server.j2
+    dest: /etc/default/isc-dhcp-server
+    owner: root
+    group: root
+    mode: '0644'
+  register: dhcp_interface_config
+  when: dhcpd_stat.stat.exists
+  ignore_errors: true
+
+- name: Configure DHCP server settings
+  template:
+    src: templates/dhcpd.conf.j2
+    dest: /etc/dhcp/dhcpd.conf
+    owner: root
+    group: root
+    mode: '0644'
+  register: dhcp_config
+  when: dhcpd_stat.stat.exists
+  ignore_errors: true
+
+- name: Restart DHCP server when configuration changes
+  systemd:
+    name: isc-dhcp-server
+    state: restarted
+  when: dhcpd_stat.stat.exists and (dhcp_interface_config.changed or dhcp_config.changed)
+  ignore_errors: true
+
+- name: Enable and start DHCP server service
+  systemd:
+    name: isc-dhcp-server
+    enabled: yes
+    state: started
+  when: dhcpd_stat.stat.exists
+  ignore_errors: true

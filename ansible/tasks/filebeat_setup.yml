@@ -1,0 +1,83 @@
+---
+# Tasks for setting up Filebeat to ship Suricata logs to OpenSearch
+
+- name: Install required packages
+  apt:
+    name:
+      - apt-transport-https
+      - gnupg2
+      - curl
+    state: present
+    update_cache: yes
+
+- name: Add Elastic GPG key
+  apt_key:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    state: present
+
+- name: Add Elastic repository
+  apt_repository:
+    repo: "deb https://artifacts.elastic.co/packages/8.x/apt stable main"
+    state: present
+    filename: elastic-8.x
+    update_cache: yes
+
+- name: Install Filebeat
+  shell: DEBIAN_FRONTEND=noninteractive apt-get -y --allow-downgrades -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install filebeat=8.8.2
+  register: filebeat_install
+  retries: 3
+  delay: 5
+  until: filebeat_install is not failed
+  failed_when: filebeat_install.rc != 0 and "already the newest version" not in filebeat_install.stderr
+
+- name: Wait for OpenSearch to be fully available
+  wait_for:
+    host: "{{ opensearch_host }}"
+    port: "{{ opensearch_port }}"
+    timeout: 300
+    delay: 10
+  ignore_errors: true
+
+- name: Configure Filebeat
+  template:
+    src: templates/filebeat.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+    owner: root
+    group: root
+    mode: '0600'
+  register: filebeat_config
+  ignore_errors: true
+
+- name: Enable Suricata module in Filebeat
+  command: filebeat modules enable suricata
+  changed_when: false
+  ignore_errors: true
+
+- name: Configure Suricata module
+  template:
+    src: templates/suricata.yml.j2
+    dest: /etc/filebeat/modules.d/suricata.yml
+    owner: root
+    group: root
+    mode: '0644'
+  register: filebeat_module_config
+  ignore_errors: true
+
+# Directly restart Filebeat when configuration changes
+- name: Restart Filebeat after configuration change
+  systemd:
+    name: filebeat
+    state: restarted
+  when: filebeat_config.changed or filebeat_module_config.changed
+  ignore_errors: true
+
+- name: Enable and start Filebeat service
+  systemd:
+    name: filebeat
+    enabled: yes
+    state: started
+  retries: 3
+  delay: 10
+  register: filebeat_service
+  until: filebeat_service is not failed
+  ignore_errors: true

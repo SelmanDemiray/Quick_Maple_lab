@@ -1,0 +1,101 @@
+---
+# Main playbook for infrastructure configuration
+- name: SSH Setup
+  hosts: all
+  become: true
+  vars_files:
+    - /home/ansible/new/Quick_Maple_lab/ansible/ssh_passwords.json
+  tasks:
+    - name: Include SSH setup tasks
+      include_tasks: tasks/ssh_setup.yml
+  
+  # Define handlers directly in the playbook
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+# Service-specific configurations
+- name: Configure OpenSearch servers
+  hosts: opensearch_nodes
+  become: true
+  vars_files:
+    - /home/ansible/new/Quick_Maple_lab/ansible/ssh_passwords.json
+  # Define OpenSearch handlers at the playbook level
+  handlers:
+    - name: Restart OpenSearch
+      systemd:
+        name: opensearch
+        state: restarted
+        
+    - name: Restart OpenSearch Dashboard
+      systemd:
+        name: opensearch-dashboards
+        state: restarted
+  tasks:
+    - name: Include OpenSearch setup tasks
+      include_tasks: tasks/opensearch_setup.yml
+      tags: opensearch
+
+- name: Configure Pi-hole servers
+  hosts: pihole_servers
+  become: true
+  vars_files:
+    - /home/ansible/new/Quick_Maple_lab/ansible/ssh_passwords.json
+  handlers:
+    - name: Restart Pi-hole DNS
+      systemd:
+        name: pihole-FTL
+        state: restarted
+        
+    - name: Update Pi-hole Gravity
+      command: pihole -g
+      changed_when: false
+      ignore_errors: true
+  tasks:
+    - name: Include Pi-hole setup tasks
+      include_tasks: tasks/pihole_setup.yml
+      tags: pihole
+
+- name: Configure DHCP servers
+  hosts: dhcp_servers
+  become: true
+  vars_files:
+    - /home/ansible/new/Quick_Maple_lab/ansible/ssh_passwords.json
+  handlers:
+    - name: Restart DHCP server
+      systemd:
+        name: isc-dhcp-server
+        state: restarted
+      ignore_errors: true
+  tasks:
+    - name: Include DHCP setup tasks
+      include_tasks: tasks/dhcp_setup.yml
+      tags: dhcp
+
+- name: Configure Suricata and Filebeat
+  hosts: suricata_hosts
+  become: true
+  vars_files:
+    - /home/ansible/new/Quick_Maple_lab/ansible/ssh_passwords.json
+  handlers:
+    - name: Restart Suricata
+      systemd:
+        name: suricata
+        state: restarted
+      ignore_errors: true
+        
+    - name: Restart Filebeat
+      systemd:
+        name: filebeat
+        state: restarted
+      ignore_errors: true
+  tasks:
+    - name: Include Suricata setup tasks
+      include_tasks: tasks/suricata_setup.yml
+      tags: suricata
+    
+    - name: Include Filebeat setup tasks
+      include_tasks: tasks/filebeat_setup.yml
+      tags: filebeat
