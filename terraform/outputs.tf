@@ -51,8 +51,3 @@ output "ssh_key_path" {
   description = "Path to the SSH private key file"
   value       = local_file.private_key.filename
 }
-
-output "ansible_ssh_info" {
-  description = "Structured SSH access information file for Ansible"
-  value       = local_file.ansible_ssh_info.filename
-}
