@@ -69,6 +69,36 @@
   roles:
     - pihole
 
+- name: Ensure Pi-hole adlists are up to date
+  hosts: pihole
+  become: yes
+  tasks:
+    - name: Install sqlite3 package
+      apt:
+        name: sqlite3
+        state: present
+        
+    - name: Define default adlists if not set in variables
+      set_fact:
+        active_block_lists: "{{ pihole_block_lists | default([
+          'https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts',
+          'https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt',
+          'https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt'
+        ]) }}"
+
+    - name: Ensure adlists are added using Pi-hole API
+      shell: "sqlite3 /etc/pihole/gravity.db \"INSERT OR IGNORE INTO adlist (address, enabled, comment) VALUES ('{{ item }}', 1, 'Added by Ansible')\""
+      loop: "{{ active_block_lists }}"
+      register: adlists_updated
+      changed_when: "'Error:' not in adlists_updated.stderr | default('')"
+      ignore_errors: true
+
+    - name: Update Pi-hole Gravity
+      command: pihole -g
+      changed_when: false
+      when: adlists_updated is changed
+      ignore_errors: true
+
 - name: Configure DHCP Server
   hosts: dhcp
   become: yes

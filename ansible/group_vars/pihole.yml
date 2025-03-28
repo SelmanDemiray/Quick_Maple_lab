@@ -16,7 +16,45 @@ pihole_web_admin_path: /admin
 
 # Blocking settings
 pihole_block_lists:
+  # General ad blocking lists
   - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
-  - https://mirror1.malwaredomains.com/files/justdomains
+  - https://raw.githubusercontent.com/OISD/OISD_Blocklist/main/oisd_big.txt
+  - https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt
+  - https://adaway.org/hosts.txt
+
+  # Tracking protection
+  - https://v.firebog.net/hosts/Easyprivacy.txt
   - https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt
+  - https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt
+  - https://v.firebog.net/hosts/Prigent-Ads.txt
+
+  # Advertising lists
   - https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
+  - https://v.firebog.net/hosts/Easylist.txt
+  - https://v.firebog.net/hosts/AdguardDNS.txt 
+  - https://raw.githubusercontent.com/FadeMind/hosts.extras/master/UncheckyAds/hosts
+  - https://raw.githubusercontent.com/d3ward/toolz/master/src/d3host.txt
+
+  # Malware protection
+  - https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Alternate%20versions%20Anti-Malware%20List/AntiMalwareHosts.txt
+  - https://osint.digitalside.it/Threat-Intel/lists/latestdomains.txt
+  - https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt
+  - https://mirror1.malwaredomains.com/files/justdomains
+  - https://raw.githubusercontent.com/RPiList/specials/master/Blocklisten/malware
+
+  # Scam & phishing protection
+  - https://raw.githubusercontent.com/durablenapkin/scamblocklist/master/hosts.txt
+  - https://phishing.army/download/phishing_army_blocklist_extended.txt
+  - https://raw.githubusercontent.com/mitchellkrogza/Phishing.Database/master/phishing-domains-ACTIVE.txt
+
+  # Social media tracking
+  - https://raw.githubusercontent.com/jmdugan/blocklists/master/corporations/facebook/all
+  - https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/SmartTV.txt
+  - https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/android-tracking.txt
+
+  # Mobile specific blocking
+  - https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/AmazonFireTV.txt
+  - https://raw.githubusercontent.com/llacb47/mischosts/master/apple-telemetry
+
+  # Crypto mining protection
+  - https://zerodot1.gitlab.io/CoinBlockerLists/hosts_browser
