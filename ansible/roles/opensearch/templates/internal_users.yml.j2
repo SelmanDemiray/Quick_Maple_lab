@@ -1,0 +1,15 @@
+_meta:
+  type: "internalusers"
+  config_version: 2
+
+admin:
+  hash: "{{ 'C87V48V593245ks99f' | password_hash('bcrypt') }}"
+  reserved: true
+  backend_roles:
+  - "admin"
+  description: "Admin user"
+
+kibanaserver:
+  hash: "{{ 'kibanaserver' | password_hash('bcrypt') }}"
+  reserved: true
+  description: "Kibana server user"

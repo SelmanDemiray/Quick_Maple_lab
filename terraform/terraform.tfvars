@@ -94,8 +94,8 @@ containers = {
 # DHCP server configuration
 dhcp_server_ranges = [
   {
-    range_start = "192.168.0.150"
-    range_end   = "192.168.0.200"
+    range_start = "192.168.0.2"
+    range_end   = "192.168.0.232"
     subnet      = "192.168.0.0"
     netmask     = "255.255.255.0"
   }

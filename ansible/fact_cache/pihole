@@ -31,17 +31,17 @@
     "ansible_date_time": {
         "date": "2025-03-28",
         "day": "28",
-        "epoch": "1743173003",
-        "epoch_int": "1743173003",
-        "hour": "14",
-        "iso8601": "2025-03-28T14:43:23Z",
-        "iso8601_basic": "20250328T144323121931",
-        "iso8601_basic_short": "20250328T144323",
-        "iso8601_micro": "2025-03-28T14:43:23.121931Z",
-        "minute": "43",
+        "epoch": "1743200647",
+        "epoch_int": "1743200647",
+        "hour": "22",
+        "iso8601": "2025-03-28T22:24:07Z",
+        "iso8601_basic": "20250328T222407098135",
+        "iso8601_basic_short": "20250328T222407",
+        "iso8601_micro": "2025-03-28T22:24:07.098135Z",
+        "minute": "24",
         "month": "03",
-        "second": "23",
-        "time": "14:43:23",
+        "second": "07",
+        "time": "22:24:07",
         "tz": "UTC",
         "tz_dst": "UTC",
         "tz_offset": "+0000",
@@ -560,7 +560,7 @@
     "ansible_distribution_version": "22.04",
     "ansible_dns": {
         "nameservers": [
-            "8.8.8.8"
+            "127.0.0.1"
         ],
         "search": [
             "proxmox.local"
@@ -579,12 +579,12 @@
         "PWD": "/root",
         "SHELL": "/bin/bash",
         "SHLVL": "0",
-        "SSH_CLIENT": "192.168.0.222 36564 22",
-        "SSH_CONNECTION": "192.168.0.222 36564 192.168.0.102 22",
+        "SSH_CLIENT": "192.168.0.193 39734 22",
+        "SSH_CONNECTION": "192.168.0.193 39734 192.168.0.102 22",
         "USER": "root",
         "XDG_RUNTIME_DIR": "/run/user/0",
         "XDG_SESSION_CLASS": "user",
-        "XDG_SESSION_ID": "9543",
+        "XDG_SESSION_ID": "9672",
         "XDG_SESSION_TYPE": "tty",
         "_": "/bin/sh"
     },
@@ -732,8 +732,8 @@
     "ansible_hostname": "pihole",
     "ansible_hostnqn": "",
     "ansible_interfaces": [
-        "lo",
-        "eth0"
+        "eth0",
+        "lo"
     ],
     "ansible_is_chroot": false,
     "ansible_iscsi_iqn": "",
@@ -761,9 +761,9 @@
         "type": "loopback"
     },
     "ansible_loadavg": {
-        "15m": 0.046875,
+        "15m": 0.0234375,
         "1m": 0.0,
-        "5m": 0.017578125
+        "5m": 0.0087890625
     },
     "ansible_local": {},
     "ansible_locally_reachable_ips": {
@@ -787,16 +787,16 @@
     "ansible_lvm": "N/A",
     "ansible_machine": "x86_64",
     "ansible_machine_id": "a177b9b1f5c2479daec31b18dd7b7710",
-    "ansible_memfree_mb": 654,
+    "ansible_memfree_mb": 229,
     "ansible_memory_mb": {
         "nocache": {
-            "free": 1192,
-            "used": 78
+            "free": 1162,
+            "used": 108
         },
         "real": {
-            "free": 654,
+            "free": 229,
             "total": 1270,
-            "used": 616
+            "used": 1041
         },
         "swap": {
             "cached": 0,
@@ -808,20 +808,20 @@
     "ansible_memtotal_mb": 1270,
     "ansible_mounts": [
         {
-            "block_available": 67095686,
+            "block_available": 67000705,
             "block_size": 4096,
             "block_total": 70937728,
-            "block_used": 3842042,
+            "block_used": 3937023,
             "device": "/dev/mapper/pve-vm--102--disk--0",
             "dump": 0,
             "fstype": "ext4",
-            "inode_available": 18064434,
+            "inode_available": 18060201,
             "inode_total": 18087936,
-            "inode_used": 23502,
+            "inode_used": 27735,
             "mount": "/",
             "options": "rw,relatime,stripe=16",
             "passno": 0,
-            "size_available": 274823929856,
+            "size_available": 274434887680,
             "size_total": 290560933888,
             "uuid": "N/A"
         }
@@ -894,7 +894,7 @@
         "features": "+PAM +AUDIT +SELINUX +APPARMOR +IMA +SMACK +SECCOMP +GCRYPT +GNUTLS -OPENSSL +ACL +BLKID +CURL +ELFUTILS -FIDO2 +IDN2 -IDN +IPTC +KMOD +LIBCRYPTSETUP -LIBFDISK +PCRE2 -PWQUALITY -P11KIT -QRENCODE +BZIP2 +LZ4 +XZ +ZLIB +ZSTD -XKBCOMMON +UTMP +SYSVINIT default-hierarchy=unified",
         "version": 249
     },
-    "ansible_uptime_seconds": 81952,
+    "ansible_uptime_seconds": 109596,
     "ansible_user_dir": "/root",
     "ansible_user_gecos": "root",
     "ansible_user_gid": 0,

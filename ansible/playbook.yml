@@ -10,7 +10,7 @@
     
     - name: Extract DHCP ranges from terraform
       set_fact:
-        dhcp_range: "{{ terraform_data.dhcp_ranges | default([{'subnet': '192.168.0.0', 'netmask': '255.255.255.0', 'range_start': '192.168.0.150', 'range_end': '192.168.0.200'}]) | first }}"
+        dhcp_range: "{{ terraform_data.dhcp_ranges | default([{'subnet': '192.168.0.0', 'netmask': '255.255.255.0', 'range_start': '192.168.0.2', 'range_end': '192.168.0.253'}]) | first }}"
 
 - name: Pre-flight checks for all hosts
   hosts: all
@@ -120,7 +120,10 @@
     
     - name: Check OpenSearch connection
       uri:
-        url: http://{{ groups['opensearch'][0] }}:9200
+        url: "https://{{ hostvars[groups['opensearch'][0]]['ansible_host'] | default(groups['opensearch'][0]) }}:9200"
+        user: admin
+        password: C87V48V593245ks99f
+        validate_certs: no
         return_content: yes
       register: opensearch_result
       ignore_errors: yes

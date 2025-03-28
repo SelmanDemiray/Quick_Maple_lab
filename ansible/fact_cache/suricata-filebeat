@@ -31,17 +31,17 @@
     "ansible_date_time": {
         "date": "2025-03-28",
         "day": "28",
-        "epoch": "1743173003",
-        "epoch_int": "1743173003",
-        "hour": "14",
-        "iso8601": "2025-03-28T14:43:23Z",
-        "iso8601_basic": "20250328T144323349586",
-        "iso8601_basic_short": "20250328T144323",
-        "iso8601_micro": "2025-03-28T14:43:23.349586Z",
-        "minute": "43",
+        "epoch": "1743200647",
+        "epoch_int": "1743200647",
+        "hour": "22",
+        "iso8601": "2025-03-28T22:24:07Z",
+        "iso8601_basic": "20250328T222407307537",
+        "iso8601_basic_short": "20250328T222407",
+        "iso8601_micro": "2025-03-28T22:24:07.307537Z",
+        "minute": "24",
         "month": "03",
-        "second": "23",
-        "time": "14:43:23",
+        "second": "07",
+        "time": "22:24:07",
         "tz": "UTC",
         "tz_dst": "UTC",
         "tz_offset": "+0000",
@@ -580,12 +580,12 @@
         "PWD": "/root",
         "SHELL": "/bin/bash",
         "SHLVL": "0",
-        "SSH_CLIENT": "192.168.0.222 46812 22",
-        "SSH_CONNECTION": "192.168.0.222 46812 192.168.0.97 22",
+        "SSH_CLIENT": "192.168.0.193 35274 22",
+        "SSH_CONNECTION": "192.168.0.193 35274 192.168.0.97 22",
         "USER": "root",
         "XDG_RUNTIME_DIR": "/run/user/0",
         "XDG_SESSION_CLASS": "user",
-        "XDG_SESSION_ID": "9542",
+        "XDG_SESSION_ID": "9671",
         "XDG_SESSION_TYPE": "tty",
         "_": "/bin/sh"
     },
@@ -733,8 +733,8 @@
     "ansible_hostname": "suricata-filebeat",
     "ansible_hostnqn": "",
     "ansible_interfaces": [
-        "eth0",
-        "lo"
+        "lo",
+        "eth0"
     ],
     "ansible_is_chroot": false,
     "ansible_iscsi_iqn": "",
@@ -762,9 +762,9 @@
         "type": "loopback"
     },
     "ansible_loadavg": {
-        "15m": 0.046875,
+        "15m": 0.0234375,
         "1m": 0.0,
-        "5m": 0.017578125
+        "5m": 0.0087890625
     },
     "ansible_local": {},
     "ansible_locally_reachable_ips": {
@@ -788,16 +788,16 @@
     "ansible_lvm": "N/A",
     "ansible_machine": "x86_64",
     "ansible_machine_id": "b11acae13eab4ed6883d428e2a4b05dd",
-    "ansible_memfree_mb": 3262,
+    "ansible_memfree_mb": 3241,
     "ansible_memory_mb": {
         "nocache": {
-            "free": 5629,
-            "used": 771
+            "free": 5627,
+            "used": 773
         },
         "real": {
-            "free": 3262,
+            "free": 3241,
             "total": 6400,
-            "used": 3138
+            "used": 3159
         },
         "swap": {
             "cached": 0,
@@ -809,10 +809,10 @@
     "ansible_memtotal_mb": 6400,
     "ansible_mounts": [
         {
-            "block_available": 145986171,
+            "block_available": 145981682,
             "block_size": 4096,
             "block_total": 154537256,
-            "block_used": 8551085,
+            "block_used": 8555574,
             "device": "/dev/mapper/pve-vm--197--disk--0",
             "dump": 0,
             "fstype": "ext4",
@@ -822,7 +822,7 @@
             "mount": "/",
             "options": "rw,relatime,stripe=16",
             "passno": 0,
-            "size_available": 597959356416,
+            "size_available": 597940969472,
             "size_total": 632984600576,
             "uuid": "N/A"
         }
@@ -904,7 +904,7 @@
         "features": "+PAM +AUDIT +SELINUX +APPARMOR +IMA +SMACK +SECCOMP +GCRYPT -GNUTLS +OPENSSL +ACL +BLKID +CURL +ELFUTILS +FIDO2 +IDN2 -IDN +IPTC +KMOD +LIBCRYPTSETUP +LIBFDISK +PCRE2 -PWQUALITY +P11KIT +QRENCODE +TPM2 +BZIP2 +LZ4 +XZ +ZLIB +ZSTD -BPF_FRAMEWORK -XKBCOMMON +UTMP +SYSVINIT default-hierarchy=unified",
         "version": 252
     },
-    "ansible_uptime_seconds": 81951,
+    "ansible_uptime_seconds": 109595,
     "ansible_user_dir": "/root",
     "ansible_user_gecos": "root",
     "ansible_user_gid": 0,
@@ -915,8 +915,8 @@
     "ansible_userspace_bits": "64",
     "ansible_virtualization_role": "guest",
     "ansible_virtualization_tech_guest": [
-        "lxc",
-        "container"
+        "container",
+        "lxc"
     ],
     "ansible_virtualization_tech_host": [
         "kvm"

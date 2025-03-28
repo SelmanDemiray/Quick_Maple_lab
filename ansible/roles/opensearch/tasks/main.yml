@@ -143,3 +143,140 @@
     enabled: yes
     state: started
     daemon_reload: yes
+
+- name: Install OpenSSL
+  apt:
+    name: openssl
+    state: present
+
+- name: Create certificates directory
+  file:
+    path: /opt/opensearch/config/certificates
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: '0750'
+
+- name: Generate root CA key
+  command: openssl genrsa -out /opt/opensearch/config/certificates/root-ca-key.pem 2048
+  args:
+    creates: /opt/opensearch/config/certificates/root-ca-key.pem
+  become: yes
+  become_user: opensearch
+
+- name: Generate root CA certificate
+  command: >
+    openssl req -new -x509 -sha256 
+    -key /opt/opensearch/config/certificates/root-ca-key.pem 
+    -out /opt/opensearch/config/certificates/root-ca.pem 
+    -days 1095 
+    -subj "/C=US/ST=CA/L=Mountain View/O=OpenSearch/CN=root-ca"
+  args:
+    creates: /opt/opensearch/config/certificates/root-ca.pem
+  become: yes
+  become_user: opensearch
+
+- name: Generate node key
+  command: openssl genrsa -out /opt/opensearch/config/certificates/esnode-key.pem 2048
+  args:
+    creates: /opt/opensearch/config/certificates/esnode-key.pem
+  become: yes
+  become_user: opensearch
+
+- name: Generate node CSR
+  command: >
+    openssl req -new 
+    -key /opt/opensearch/config/certificates/esnode-key.pem 
+    -out /opt/opensearch/config/certificates/esnode.csr 
+    -subj "/C=US/ST=CA/L=Mountain View/O=OpenSearch/CN=opensearch-node"
+  args:
+    creates: /opt/opensearch/config/certificates/esnode.csr
+  become: yes
+  become_user: opensearch
+
+- name: Generate node certificate
+  command: >
+    openssl x509 -req 
+    -in /opt/opensearch/config/certificates/esnode.csr 
+    -CA /opt/opensearch/config/certificates/root-ca.pem 
+    -CAkey /opt/opensearch/config/certificates/root-ca-key.pem 
+    -CAcreateserial 
+    -sha256 
+    -out /opt/opensearch/config/certificates/esnode.pem 
+    -days 1095
+  args:
+    creates: /opt/opensearch/config/certificates/esnode.pem
+  become: yes
+  become_user: opensearch
+
+- name: Verify certificate files exist
+  stat:
+    path: "/opt/opensearch/config/certificates/{{ item }}"
+  register: cert_files
+  with_items:
+    - root-ca.pem
+    - esnode.pem
+    - esnode-key.pem
+
+- name: Debug certificate file status
+  debug:
+    msg: "Certificate {{ item.item }} exists: {{ item.stat.exists }}"
+  with_items: "{{ cert_files.results }}"
+
+- name: Update certificates ownership
+  file:
+    path: "/opt/opensearch/config/certificates/{{ item.item }}"
+    owner: opensearch
+    group: opensearch
+    mode: '0640'
+  with_items: "{{ cert_files.results }}"
+  when: item.stat.exists
+
+- name: Ensure opensearch-security config directory exists
+  file:
+    path: /opt/opensearch/config/opensearch-security
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: '0750'
+
+- name: Copy internal_users.yml template
+  template:
+    src: internal_users.yml.j2
+    dest: /opt/opensearch/config/opensearch-security/internal_users.yml
+    owner: opensearch
+    group: opensearch
+    mode: '0640'
+  register: security_settings
+  notify: restart opensearch
+
+- name: Check if securityadmin.sh exists
+  stat:
+    path: /opt/opensearch/plugins/opensearch-security/tools/securityadmin.sh
+  register: securityadmin_check
+
+- name: Set executable permissions on securityadmin.sh
+  file:
+    path: /opt/opensearch/plugins/opensearch-security/tools/securityadmin.sh
+    mode: '0755'
+    state: file
+  when: securityadmin_check.stat.exists
+  become: yes
+
+- name: Initialize security index
+  command: >
+    /opt/opensearch/plugins/opensearch-security/tools/securityadmin.sh 
+    -cd /opt/opensearch/config/opensearch-security/ 
+    -icl -nhnv 
+    -cacert /opt/opensearch/config/certificates/root-ca.pem 
+    -cert /opt/opensearch/config/certificates/esnode.pem 
+    -key /opt/opensearch/config/certificates/esnode-key.pem
+  become: yes
+  become_user: opensearch
+  when: security_settings.changed and cert_files is defined and 
+        cert_files.results | selectattr('item', 'equalto', 'esnode.pem') | map(attribute='stat.exists') | list | first and
+        cert_files.results | selectattr('item', 'equalto', 'esnode-key.pem') | map(attribute='stat.exists') | list | first and
+        cert_files.results | selectattr('item', 'equalto', 'root-ca.pem') | map(attribute='stat.exists') | list | first and
+        securityadmin_check.stat.exists
+  ignore_errors: yes
+  notify: restart opensearch

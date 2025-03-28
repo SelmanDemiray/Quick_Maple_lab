@@ -8,7 +8,15 @@ http.port: 9200
 discovery.type: single-node
 
 # Security settings
-plugins.security.disabled: true
+plugins.security.disabled: false
+plugins.security.ssl.transport.pemcert_filepath: /opt/opensearch/config/certificates/esnode.pem
+plugins.security.ssl.transport.pemkey_filepath: /opt/opensearch/config/certificates/esnode-key.pem
+plugins.security.ssl.transport.pemtrustedcas_filepath: /opt/opensearch/config/certificates/root-ca.pem
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: /opt/opensearch/config/certificates/esnode.pem
+plugins.security.ssl.http.pemkey_filepath: /opt/opensearch/config/certificates/esnode-key.pem
+plugins.security.ssl.http.pemtrustedcas_filepath: /opt/opensearch/config/certificates/root-ca.pem
+plugins.security.allow_default_init_securityindex: true
 
 path.data: /var/lib/opensearch
 path.logs: /var/log/opensearch

@@ -186,7 +186,8 @@ resource "local_file" "ansible_ssh_info" {
           group if contains(names, name)
         ]
       }
-    }
+    },
+    dhcp_ranges = var.dhcp_server_ranges  # Add this line to include DHCP ranges
   })
   filename = "${local.ansible_path}/ssh_access.json"
   file_permission = "0600"
