@@ -1,0 +1,22 @@
+---
+# Pi-hole configuration
+pihole_admin_password: "pihole_admin_password"  # Set your preferred password or use the one from terraform
+
+# DNS settings
+pihole_dns_servers:
+  - 1.1.1.1
+  - 8.8.8.8
+
+# Interface settings
+pihole_interface: eth0
+
+# Web admin interface settings
+pihole_web_port: 80
+pihole_web_admin_path: /admin
+
+# Blocking settings
+pihole_block_lists:
+  - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+  - https://mirror1.malwaredomains.com/files/justdomains
+  - https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt
+  - https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt

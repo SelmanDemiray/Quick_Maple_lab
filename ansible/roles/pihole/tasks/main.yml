@@ -1,0 +1,61 @@
+---
+- name: Install required packages for Pi-hole
+  apt:
+    name:
+      - curl
+      - dhcpcd5
+      - git
+      - iproute2
+      - whiptail
+      - dnsutils
+    state: present
+
+- name: Create Pi-hole installation directory
+  file:
+    path: /etc/pihole
+    state: directory
+    mode: '0755'
+
+- name: Create variable directory for Pi-hole
+  file:
+    path: /var/www/html
+    state: directory
+    mode: '0755'
+
+- name: Download Pi-hole installer
+  get_url:
+    url: https://install.pi-hole.net
+    dest: /tmp/install.sh
+    mode: '0755'
+
+- name: Create Pi-hole configuration file
+  template:
+    src: setupVars.conf.j2
+    dest: /etc/pihole/setupVars.conf
+    mode: '0644'
+
+- name: Run Pi-hole installer
+  command: >
+    bash /tmp/install.sh --unattended
+  args:
+    creates: /usr/local/bin/pihole
+  environment:
+    PIHOLE_SKIP_OS_CHECK: "true"
+
+- name: Set Pi-hole admin password
+  command: >
+    pihole -a -p "{{ pihole_admin_password }}"
+  no_log: true
+  when: pihole_admin_password is defined
+
+- name: Update Pi-hole gravity database
+  command: pihole -g
+  register: gravity_update
+  changed_when: "'up to date' not in gravity_update.stdout"
+
+- name: Set Pi-hole as DNS server
+  lineinfile:
+    path: /etc/resolv.conf
+    regexp: '^nameserver'
+    line: 'nameserver 127.0.0.1'
+    state: present

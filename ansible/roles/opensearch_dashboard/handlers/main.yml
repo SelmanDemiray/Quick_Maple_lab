@@ -1,0 +1,10 @@
+---
+- name: restart opensearch-dashboards
+  systemd:
+    name: opensearch-dashboards
+    state: restarted
+  ignore_errors: yes
+
+- name: systemd daemon-reload
+  systemd:
+    daemon_reload: yes

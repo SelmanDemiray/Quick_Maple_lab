@@ -1,0 +1,6 @@
+---
+dhcp_range:
+  subnet: 192.168.0.0
+  netmask: 255.255.255.0
+  range_start: 192.168.0.150
+  range_end: 192.168.0.200

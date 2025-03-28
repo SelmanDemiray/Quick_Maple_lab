@@ -1,0 +1,16 @@
+# Default fallback rules for Suricata
+# Created by Ansible for Quick Maple Lab
+
+# Basic ICMP alert
+alert icmp any any -> any any (msg:"ICMP traffic detected"; classtype:not-suspicious; sid:10000001; rev:1;)
+
+# Basic HTTP alerts
+alert tcp any any -> any 80 (msg:"HTTP traffic detected"; flow:established,to_server; classtype:not-suspicious; sid:10000002; rev:1;)
+alert tcp any 80 -> any any (msg:"HTTP traffic response"; flow:established,to_client; classtype:not-suspicious; sid:10000003; rev:1;)
+
+# Basic DNS alerts
+alert udp any any -> any 53 (msg:"DNS request detected"; classtype:not-suspicious; sid:10000004; rev:1;)
+alert udp any 53 -> any any (msg:"DNS response detected"; classtype:not-suspicious; sid:10000005; rev:1;)
+
+# SSH traffic
+alert tcp any any -> any 22 (msg:"SSH traffic detected"; flow:established; classtype:not-suspicious; sid:10000006; rev:1;)

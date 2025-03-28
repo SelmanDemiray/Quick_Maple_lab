@@ -1,0 +1,30 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/suricata/eve.json
+  json.keys_under_root: true
+  json.add_error_key: true
+  json.message_key: log
+
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: true
+
+setup.template.settings:
+  index.number_of_shards: 1
+
+setup.kibana:
+  host: "{{ opensearch.host }}:{{ opensearch.dashboard_port }}"
+
+output.elasticsearch:
+  hosts: ["{{ opensearch.host }}:{{ opensearch.port }}"]
+  username: "{{ opensearch.username }}"
+  password: "{{ opensearch.password }}"
+  
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+  - add_kubernetes_metadata: ~

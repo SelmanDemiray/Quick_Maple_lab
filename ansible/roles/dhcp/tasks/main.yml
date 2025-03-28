@@ -1,0 +1,30 @@
+---
+- name: Install ISC DHCP server
+  apt:
+    name: isc-dhcp-server
+    state: present
+    update_cache: yes
+
+- name: Configure network interface for DHCP
+  template:
+    src: dhcpd.interfaces.j2
+    dest: /etc/default/isc-dhcp-server
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart dhcp
+
+- name: Configure DHCP server
+  template:
+    src: dhcpd.conf.j2
+    dest: /etc/dhcp/dhcpd.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart dhcp
+
+- name: Ensure DHCP server is running and enabled
+  systemd:
+    name: isc-dhcp-server
+    state: started
+    enabled: yes

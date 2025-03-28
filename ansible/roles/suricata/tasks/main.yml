@@ -1,0 +1,319 @@
+---
+- name: Install Suricata dependencies
+  apt:
+    name:
+      - software-properties-common
+      - apt-transport-https
+      - gnupg
+      - curl
+      - python3-pip
+    state: present
+
+- name: Check Debian version
+  command: cat /etc/debian_version
+  register: debian_version
+  changed_when: false
+  when: ansible_distribution == "Debian"
+
+- name: Display Debian version
+  debug:
+    msg: "Debian version: {{ debian_version.stdout }}"
+  when: ansible_distribution == "Debian"
+
+# Ubuntu installation
+- name: Add Suricata PPA repository (Ubuntu)
+  apt_repository:
+    repo: ppa:oisf/suricata-stable
+    state: present
+  when: ansible_distribution == "Ubuntu"
+
+- name: Install Suricata (Ubuntu)
+  apt:
+    name: suricata
+    state: present
+    update_cache: yes
+  when: ansible_distribution == "Ubuntu"
+
+# Debian installation via OISF repository
+- name: Add OISF GPG key for Debian
+  get_url:
+    url: https://www.openinfosecfoundation.org/keys/repo-openinfosecfoundation-org-release.gpg
+    dest: /usr/share/keyrings/openinfosecfoundation-archive-keyring.gpg
+    mode: '0644'
+  when: ansible_distribution == "Debian"
+  ignore_errors: yes
+  register: gpg_key_download
+
+- name: Fallback GPG key download if direct method fails
+  shell: |
+    curl -fsSL https://www.openinfosecfoundation.org/keys/repo-openinfosecfoundation-org-release.gpg | gpg --dearmor > /usr/share/keyrings/openinfosecfoundation-archive-keyring.gpg
+    chmod 0644 /usr/share/keyrings/openinfosecfoundation-archive-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/openinfosecfoundation-archive-keyring.gpg
+  when: ansible_distribution == "Debian" and (gpg_key_download is failed or gpg_key_download is skipped)
+  ignore_errors: yes
+  register: gpg_key_curl
+
+# Skip repository configuration and try direct installation first
+- name: Install Suricata from Debian standard repositories
+  apt:
+    name: suricata
+    state: present
+    update_cache: yes
+  register: suricata_install_standard
+  ignore_errors: yes
+  when: ansible_distribution == "Debian"
+
+# Attempt to manually download and install Suricata if standard install fails
+- name: Check if wget is installed
+  apt:
+    name: wget
+    state: present
+  when: ansible_distribution == "Debian" and (suricata_install_standard is failed or suricata_install_standard is skipped)
+  
+- name: Download Suricata from official sources (fallback)
+  shell: |
+    cd /tmp
+    wget https://www.openinfosecfoundation.org/download/suricata-7.0.1.tar.gz
+    tar -xzf suricata-7.0.1.tar.gz
+  args:
+    creates: /tmp/suricata-7.0.1.tar.gz
+  when: ansible_distribution == "Debian" and (suricata_install_standard is failed or suricata_install_standard is skipped)
+  ignore_errors: yes
+  register: suricata_download
+  
+- name: Install build dependencies for Suricata
+  apt:
+    name:
+      - build-essential
+      - libpcre3-dev
+      - libpcap-dev
+      - libnet1-dev
+      - libyaml-dev
+      - libjansson-dev
+      - pkg-config
+      - zlib1g-dev
+      - libmagic-dev
+      - libnss3-dev
+      - libcap-ng-dev
+      - libgeoip-dev
+      - liblua5.1-dev
+      - libhtp-dev
+      - libssl-dev
+      - rustc
+      - cargo
+    state: present
+  when: suricata_download is defined and suricata_download is success
+  ignore_errors: yes
+  
+- name: Build and install Suricata from source
+  shell: |
+    cd /tmp/suricata-7.0.1
+    ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+    make
+    make install
+    make install-conf
+  args:
+    creates: /usr/bin/suricata
+  when: suricata_download is defined and suricata_download is success
+  ignore_errors: yes
+  register: suricata_build
+
+# Check if Suricata was installed successfully
+- name: Verify Suricata installation
+  command: which suricata
+  register: suricata_verify
+  changed_when: false
+  failed_when: false
+
+- name: Report Suricata installation status
+  debug:
+    msg: "Suricata installation status: {{ 'SUCCESS' if suricata_verify.rc == 0 else 'FAILED' }}"
+
+# Continue with configuration if Suricata is installed
+- name: Create Suricata configuration directory
+  file:
+    path: /etc/suricata
+    state: directory
+    mode: '0755'
+  when: suricata_verify.rc == 0
+
+- name: Copy Suricata configuration
+  template:
+    src: suricata.yaml.j2
+    dest: /etc/suricata/suricata.yaml
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart suricata
+  when: suricata_verify.rc == 0
+
+- name: Ensure Suricata rules directory exists
+  file:
+    path: /var/lib/suricata/rules
+    state: directory
+    mode: '0755'
+  when: suricata_verify.rc == 0
+
+# Skip apt attempt since it's failing
+- name: Install suricata-update via apt
+  apt:
+    name: python3-suricata-update
+    state: present
+  register: suricata_update_apt
+  ignore_errors: yes
+  when: suricata_verify.rc == 0
+
+# Use pip to install suricata-update (this was working in previous run)
+- name: Install suricata-update via pip (fallback)
+  pip:
+    name: suricata-update
+    extra_args: --break-system-packages
+    state: present
+  register: suricata_update_pip
+  when: suricata_verify.rc == 0 and (suricata_update_apt is failed or suricata_update_apt is skipped)
+  ignore_errors: yes
+
+# Create a basic custom rule file
+- name: Create a basic custom rule file if none exists
+  copy:
+    dest: "/var/lib/suricata/rules/custom.rules"
+    content: |
+      # Basic Suricata rules
+      alert icmp any any -> any any (msg:"Test rule - ICMP traffic"; icmp_id:0; icmp_seq:0; classtype:not-suspicious; sid:10000001; rev:1;)
+      alert http any any -> any any (msg:"Test rule - HTTP Request to example.com"; flow:established,to_server; http.host; content:"example.com"; classtype:not-suspicious; sid:10000002; rev:1;)
+    owner: root
+    group: root
+    mode: '0644'
+    force: no  # Don't overwrite if exists
+  when: suricata_verify.rc == 0
+  notify: restart suricata
+
+# Try to run suricata-update if installed
+- name: Run suricata-update to download rules
+  shell: >
+    suricata-update 2>&1 || echo 'Suricata-update failed'
+  args:
+    creates: "/var/lib/suricata/rules/suricata.rules"
+  register: suricata_update_run
+  when: suricata_verify.rc == 0 and suricata_update_pip is success
+  ignore_errors: yes
+  notify: restart suricata
+
+# Only attempt to download rules if suricata-update explicitly failed
+- name: Download default rules directly if needed
+  get_url:
+    url: https://rules.emergingthreats.net/open/suricata/emerging.rules.tar.gz
+    dest: /tmp/emerging.rules.tar.gz
+    mode: '0644'
+  register: rules_download
+  when: >
+    suricata_verify.rc == 0 and
+    (suricata_update_run is defined and suricata_update_run is failed or 
+    (suricata_update_run.stdout is defined and suricata_update_run.stdout is search("failed")))
+  ignore_errors: yes
+
+# Don't try to extract if file doesn't exist
+- name: Check if rules archive exists before extracting
+  stat:
+    path: /tmp/emerging.rules.tar.gz
+  register: rules_archive
+  when: rules_download is defined
+  
+# Extract downloaded rules if they were downloaded
+- name: Extract downloaded rules
+  unarchive:
+    src: /tmp/emerging.rules.tar.gz
+    dest: /var/lib/suricata/rules/
+    remote_src: yes
+  when: rules_archive is defined and rules_archive.stat is defined and rules_archive.stat.exists
+  ignore_errors: yes
+  notify: restart suricata
+
+# Only create default rules if no rules exist
+- name: Check if any rules exist
+  find:
+    paths: /var/lib/suricata/rules
+    patterns: "*.rules"
+  register: existing_rules
+  when: suricata_verify.rc == 0
+
+# Filter out rules for disabled protocols to prevent validation errors
+- name: Filter out rules for disabled protocols
+  shell: |
+    # Comment out rules for dnp3 protocol which is disabled
+    sed -i 's/^alert dnp3/#alert dnp3/g' /var/lib/suricata/rules/suricata.rules
+    # Comment out rules for modbus protocol which is disabled
+    sed -i 's/^alert modbus/#alert modbus/g' /var/lib/suricata/rules/suricata.rules
+  when: >
+    suricata_verify.rc == 0 and
+    existing_rules is defined and existing_rules.matched > 0 and
+    existing_rules.files | selectattr('path', 'search', 'suricata.rules') | list | length > 0
+  ignore_errors: yes
+  register: filter_rules
+
+# Create a default rules file if all else fails
+- name: Create default rules file as last resort
+  copy:
+    src: default-rule.rules
+    dest: "/var/lib/suricata/rules/default.rules"
+    owner: root
+    group: root
+    mode: '0644'
+  when: >
+    suricata_verify.rc == 0 and
+    existing_rules is defined and existing_rules.matched == 0
+  notify: restart suricata
+
+# Make sure Suricata can access the rules directory
+- name: Set permissions on rules directory
+  file:
+    path: /var/lib/suricata/rules
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+    recurse: yes
+  when: suricata_verify.rc == 0
+
+- name: Ensure Suricata log directory exists
+  file:
+    path: /var/log/suricata
+    state: directory
+    mode: '0755'
+    owner: root
+  when: suricata_verify.rc == 0
+
+# Validate Suricata configuration before starting
+- name: Validate Suricata configuration
+  command: suricata -T -c /etc/suricata/suricata.yaml
+  register: suricata_config_validate
+  changed_when: false
+  ignore_errors: yes
+  when: suricata_verify.rc == 0
+
+- name: Report Suricata configuration validation
+  debug:
+    msg: "Suricata configuration validation: {{ 'SUCCESS' if suricata_config_validate.rc == 0 else 'FAILED - ' + suricata_config_validate.stderr }}"
+  when: suricata_verify.rc == 0
+
+# Only try to start if validation succeeds
+- name: Configure Suricata to start at boot
+  systemd:
+    name: suricata
+    enabled: yes
+    state: started
+  when: suricata_verify.rc == 0 and (suricata_config_validate.rc == 0 or suricata_config_validate is skipped)
+  ignore_errors: yes
+
+- name: Set permissions for eve.json
+  file:
+    path: /var/log/suricata/eve.json
+    state: touch
+    mode: '0644'
+    owner: root
+    group: root
+    access_time: preserve
+    modification_time: preserve
+  when: suricata_verify.rc == 0
+  ignore_errors: yes

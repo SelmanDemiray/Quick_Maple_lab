@@ -1,0 +1,45 @@
+---
+- name: Get OS information
+  setup:
+    filter: ansible_distribution*
+  when: ansible_distribution is not defined
+
+- name: Backup original sources.list
+  copy:
+    src: /etc/apt/sources.list
+    dest: /etc/apt/sources.list.backup
+    remote_src: yes
+    force: no
+  register: sources_backup
+  failed_when: false
+  changed_when: sources_backup is success
+  
+- name: Create custom sources.list for Debian
+  template:
+    src: sources.list.debian.j2
+    dest: /etc/apt/sources.list
+    owner: root
+    group: root
+    mode: '0644'
+  when: ansible_distribution == 'Debian'
+  register: debian_sources
+  
+- name: Create custom sources.list for Ubuntu
+  template:
+    src: sources.list.ubuntu.j2
+    dest: /etc/apt/sources.list
+    owner: root
+    group: root
+    mode: '0644'
+  when: ansible_distribution == 'Ubuntu'
+  register: ubuntu_sources
+
+- name: Update apt cache after repository changes
+  apt:
+    update_cache: yes
+  when: debian_sources.changed or ubuntu_sources.changed
+  register: apt_update_after_config
+  retries: 5
+  delay: 10
+  until: apt_update_after_config is success
+  failed_when: false

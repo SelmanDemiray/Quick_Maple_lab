@@ -1,0 +1,122 @@
+- name: Create OpenSearch Dashboard directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: '0750'
+  loop:
+    - /var/lib/opensearch-dashboards
+    - /var/log/opensearch-dashboards
+    - /etc/opensearch-dashboards
+
+# Check if opensearch-dashboards directory exists and is not a symlink
+- name: Check if opensearch-dashboards directory exists and is not a symlink
+  stat:
+    path: /opt/opensearch-dashboards
+  register: dashboard_dir
+
+# Remove directory if it exists but isn't a symlink
+- name: Remove opensearch-dashboards directory if it's not a symlink
+  file:
+    path: /opt/opensearch-dashboards
+    state: absent
+  when: dashboard_dir.stat.exists and not dashboard_dir.stat.islnk
+
+# Check if version directory exists
+- name: Check for existing opensearch-dashboards-2.5.0 directory
+  stat:
+    path: /opt/opensearch-dashboards-2.5.0
+  register: dashboard_version_dir
+
+# Remove old version directory if it exists
+- name: Remove old opensearch-dashboards-2.5.0 directory if present
+  file:
+    path: /opt/opensearch-dashboards-2.5.0
+    state: absent
+  when: dashboard_version_dir.stat.exists
+  register: removed_dashboard_dir
+
+- name: Download OpenSearch Dashboard
+  get_url:
+    url: https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.5.0/opensearch-dashboards-2.5.0-linux-x64.tar.gz
+    dest: /tmp/opensearch-dashboards.tar.gz
+    mode: '0644'
+  register: dashboard_download
+
+- name: Extract OpenSearch Dashboard
+  unarchive:
+    src: /tmp/opensearch-dashboards.tar.gz
+    dest: /opt/
+    remote_src: yes
+    owner: opensearch
+    group: opensearch
+  # Force extraction if directory was removed or download changed
+  when: removed_dashboard_dir.changed or dashboard_download.changed or not dashboard_version_dir.stat.exists
+  register: dashboard_extract
+
+- name: Check if OpenSearch Dashboard directory exists
+  stat:
+    path: /opt/opensearch-dashboards-2.5.0
+  register: dashboard_extracted_dir
+
+- name: Debug extraction status
+  debug:
+    msg: "OpenSearch Dashboard directory exists: {{ dashboard_extracted_dir.stat.exists | default(false) }}"
+
+- name: Forcefully extract if directory still doesn't exist
+  unarchive:
+    src: /tmp/opensearch-dashboards.tar.gz
+    dest: /opt/
+    remote_src: yes
+    owner: opensearch
+    group: opensearch
+  when: not dashboard_extracted_dir.stat.exists | default(false)
+
+- name: Verify extraction succeeded
+  stat:
+    path: /opt/opensearch-dashboards-2.5.0
+  register: dashboard_final_check
+
+- name: Create OpenSearch Dashboard symbolic link
+  file:
+    src: /opt/opensearch-dashboards-2.5.0
+    dest: /opt/opensearch-dashboards
+    state: link
+    owner: opensearch
+    group: opensearch
+    force: yes
+  when: dashboard_final_check.stat.exists | default(false)
+
+- name: Configure OpenSearch Dashboard
+  template:
+    src: opensearch_dashboards.yml.j2
+    dest: /opt/opensearch-dashboards/config/opensearch_dashboards.yml
+    owner: opensearch
+    group: opensearch
+    mode: '0644'
+  notify: restart opensearch-dashboards
+
+- name: Ensure Dashboard is listening on all interfaces
+  lineinfile:
+    path: /opt/opensearch-dashboards/config/opensearch_dashboards.yml
+    regexp: '^server\.host:'
+    line: 'server.host: "0.0.0.0"'
+    state: present
+  notify: restart opensearch-dashboards
+
+- name: Create OpenSearch Dashboard systemd service
+  template:
+    src: opensearch-dashboards.service.j2
+    dest: /etc/systemd/system/opensearch-dashboards.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: systemd daemon-reload
+
+- name: Enable and start OpenSearch Dashboard service
+  systemd:
+    name: opensearch-dashboards
+    enabled: yes
+    state: started
+    daemon_reload: yes

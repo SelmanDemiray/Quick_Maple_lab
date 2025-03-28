@@ -1,0 +1,13 @@
+---
+- name: restart suricata
+  systemd:
+    name: suricata
+    state: restarted
+    daemon_reload: yes
+  register: suricata_restart
+  ignore_errors: yes
+
+- name: report suricata restart status
+  debug:
+    msg: "Suricata restart {{ 'successful' if suricata_restart is success else 'failed' }}"
+  when: suricata_restart is defined

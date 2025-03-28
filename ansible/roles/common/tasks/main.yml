@@ -1,0 +1,88 @@
+---
+- name: Ensure basic networking packages are installed
+  raw: apt-get update -qq && apt-get install -y python3 ca-certificates apt-transport-https --no-install-recommends
+  changed_when: false
+  failed_when: false
+  register: bootstrap_result
+  
+- name: Check DNS resolution
+  command: "ping -c 1 debian.org"
+  register: dns_check
+  changed_when: false
+  failed_when: false
+  ignore_errors: yes
+
+- name: Display DNS resolution status
+  debug:
+    msg: "DNS resolution {{ 'working' if dns_check.rc == 0 else 'NOT working' }}"
+
+- name: Configure temporary DNS resolver if needed
+  lineinfile:
+    path: /etc/resolv.conf
+    regexp: '^nameserver'
+    line: 'nameserver 8.8.8.8'
+    state: present
+  when: dns_check.rc != 0
+  
+- name: Update apt cache with better error handling
+  block:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      register: apt_update
+      retries: 10
+      delay: 5
+      until: apt_update is success
+  rescue:
+    - name: Try direct apt-get command
+      command: apt-get update
+      register: apt_cmd_result
+      changed_when: apt_cmd_result.rc == 0
+      failed_when: false
+      
+    - name: Report apt update issue
+      debug:
+        msg: "Apt update encountered issues but we'll continue with installation anyway"
+      when: apt_cmd_result.rc != 0
+
+- name: Install common packages
+  apt:
+    name: "{{ common_packages }}"
+    state: present
+    update_cache: no # Already updated above
+  register: package_install
+  retries: 3
+  delay: 5
+  until: package_install is success
+  when: ansible_os_family == "Debian"
+
+- name: Configure timezone
+  timezone:
+    name: UTC
+
+- name: Set hostname
+  hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Ensure iptables is available
+  apt:
+    name: iptables
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Set up basic firewall rules
+  iptables:
+    chain: INPUT
+    policy: ACCEPT
+  become: yes
+
+- name: Configure basic sysctl settings for networking
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  with_items:
+    - { key: 'net.ipv4.ip_forward', value: '1' }
+    - { key: 'net.ipv4.conf.all.rp_filter', value: '1' }

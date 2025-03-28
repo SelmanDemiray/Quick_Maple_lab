@@ -1,0 +1,17 @@
+# OpenSearch configuration
+cluster.name: opensearch-cluster
+node.name: ${HOSTNAME}
+
+network.host: 0.0.0.0
+http.port: 9200
+
+discovery.type: single-node
+
+# Security settings
+plugins.security.disabled: true
+
+path.data: /var/lib/opensearch
+path.logs: /var/log/opensearch
+
+# Performance settings
+bootstrap.memory_lock: true

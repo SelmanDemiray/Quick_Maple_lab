@@ -1,0 +1,45 @@
+---
+# Global configuration
+ansible_user: root
+ansible_python_interpreter: /usr/bin/python3
+
+# Network configuration
+network:
+  gateway: 192.168.0.1
+  subnet: 192.168.0.0/24
+  dns_server: 192.168.0.102  # Pi-hole
+
+# Repository mirrors (added for better reliability)
+apt_repositories:
+  debian:
+    - 'deb http://deb.debian.org/debian buster main'
+    - 'deb http://security.debian.org/debian-security buster/updates main'
+  ubuntu:
+    - 'deb http://archive.ubuntu.com/ubuntu jammy main'
+    - 'deb http://security.ubuntu.com/ubuntu jammy-security main'
+
+# Fallback DNS servers
+dns_servers:
+  - 8.8.8.8
+  - 1.1.1.1
+  
+# OpenSearch configuration
+opensearch:
+  host: 192.168.0.99
+  port: 9200
+  dashboard_port: 5601
+  username: admin
+  password: admin
+  memory_limit: 8g
+  
+# Common packages to install on all hosts
+common_packages:
+  - curl
+  - htop
+  - vim
+  - iptables
+  - net-tools
+  - tcpdump
+  - rsyslog
+  - ca-certificates
+  - dnsutils

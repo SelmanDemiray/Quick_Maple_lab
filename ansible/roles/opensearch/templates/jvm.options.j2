@@ -1,0 +1,24 @@
+## JVM configuration
+
+# Xms represents the initial size of total heap space
+# Xmx represents the maximum size of total heap space
+-Xms512m
+-Xmx512m
+
+# GC configuration
+8-13:-XX:+UseConcMarkSweepGC
+8-13:-XX:CMSInitiatingOccupancyFraction=75
+8-13:-XX:+UseCMSInitiatingOccupancyOnly
+
+# Pre-touch memory pages used by the JVM during initialization
+-XX:+AlwaysPreTouch
+
+# Ensure process can lock memory to prevent swapping
+-Dbootstrap.memory_lock=true
+
+# Keep heap size consistent on containerized environments
+-XX:+UseContainerSupport
+
+# DNS TTL settings
+-Dnetworkaddress.cache.ttl=60
+-Dnetworkaddress.cache.negative.ttl=10

@@ -1,0 +1,19 @@
+---
+all:
+  children:
+    dhcp:
+      hosts:
+        isc-dhcp-server:
+          ansible_host: 192.168.0.10
+    opensearch:
+      hosts:
+        opensearch-dashboard:
+          ansible_host: 192.168.0.99
+    pihole:
+      hosts:
+        pihole:
+          ansible_host: 192.168.0.102
+    suricata:
+      hosts:
+        suricata-filebeat:
+          ansible_host: 192.168.0.97

@@ -1,0 +1,31 @@
+[Unit]
+Description=OpenSearch
+Documentation=https://opensearch.org/docs/
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=forking
+RuntimeDirectory=opensearch
+PrivateTmp=true
+
+User=opensearch
+Group=opensearch
+
+ExecStart=/opt/opensearch/bin/opensearch -d -p /var/run/opensearch/opensearch.pid
+
+# Specifies the maximum file descriptor number
+LimitNOFILE=65536
+# Max memory size
+LimitMEMLOCK=infinity
+# Maximum size of virtual memory
+LimitAS=infinity
+# Maximum file size
+LimitFSIZE=infinity
+
+# Restart service after 10s if node crashes or is killed
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

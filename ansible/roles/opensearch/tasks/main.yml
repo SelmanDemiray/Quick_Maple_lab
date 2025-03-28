@@ -1,0 +1,145 @@
+---
+- name: Install Java
+  apt:
+    name: openjdk-11-jdk
+    state: present
+
+- name: Create OpenSearch group
+  group:
+    name: opensearch
+    state: present
+
+- name: Create OpenSearch user
+  user:
+    name: opensearch
+    group: opensearch
+    system: yes
+    state: present
+
+- name: Create OpenSearch directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: opensearch
+    group: opensearch
+    mode: '0750'
+  loop:
+    - /var/lib/opensearch
+    - /var/log/opensearch
+    - /etc/opensearch
+
+# Check if the direct opensearch directory exists (not a symlink)
+- name: Check if opensearch directory exists and is not a symlink
+  stat:
+    path: /opt/opensearch
+  register: opensearch_dir
+
+# Remove directory if it exists but isn't a symlink
+- name: Remove opensearch directory if it's not a symlink
+  file:
+    path: /opt/opensearch
+    state: absent
+  when: opensearch_dir.stat.exists and not opensearch_dir.stat.islnk
+
+# Check if opensearch-2.5.0 directory exists
+- name: Check for existing opensearch-2.5.0 directory
+  stat:
+    path: /opt/opensearch-2.5.0
+  register: opensearch_version_dir
+
+# Remove old version directory if it exists
+- name: Remove old opensearch-2.5.0 directory if present
+  file:
+    path: /opt/opensearch-2.5.0
+    state: absent
+  when: opensearch_version_dir.stat.exists
+
+- name: Download OpenSearch
+  get_url:
+    url: https://artifacts.opensearch.org/releases/bundle/opensearch/2.5.0/opensearch-2.5.0-linux-x64.tar.gz
+    dest: /tmp/opensearch.tar.gz
+    mode: '0644'
+  register: opensearch_download
+
+- name: Extract OpenSearch
+  unarchive:
+    src: /tmp/opensearch.tar.gz
+    dest: /opt/
+    remote_src: yes
+    owner: opensearch
+    group: opensearch
+  when: opensearch_download is success
+  register: opensearch_extract
+
+- name: Create OpenSearch symbolic link
+  file:
+    src: /opt/opensearch-2.5.0
+    dest: /opt/opensearch
+    state: link
+    owner: opensearch
+    group: opensearch
+    force: yes
+  when: opensearch_extract is success or opensearch_extract is skipped
+
+- name: Configure OpenSearch
+  template:
+    src: opensearch.yml.j2
+    dest: /opt/opensearch/config/opensearch.yml
+    owner: opensearch
+    group: opensearch
+    mode: '0644'
+  notify: restart opensearch
+
+- name: Configure JVM options
+  template:
+    src: jvm.options.j2
+    dest: /opt/opensearch/config/jvm.options
+    owner: opensearch
+    group: opensearch
+    mode: '0644'
+  notify: restart opensearch
+
+- name: Create OpenSearch systemd service
+  template:
+    src: opensearch.service.j2
+    dest: /etc/systemd/system/opensearch.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: systemd daemon-reload
+
+- name: Set system limits for OpenSearch
+  pam_limits:
+    domain: opensearch
+    limit_type: "{{ item.limit_type }}"
+    limit_item: "{{ item.limit_item }}"
+    value: "{{ item.value }}"
+  loop:
+    - { limit_type: soft, limit_item: nofile, value: 65536 }
+    - { limit_type: hard, limit_item: nofile, value: 65536 }
+    - { limit_type: soft, limit_item: memlock, value: unlimited }
+    - { limit_type: hard, limit_item: memlock, value: unlimited }
+
+- name: Set kernel parameters for OpenSearch
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_set: yes
+  loop:
+    - { name: vm.max_map_count, value: 262144 }
+
+- name: Ensure OpenSearch is listening on all interfaces
+  lineinfile:
+    path: /opt/opensearch/config/opensearch.yml
+    regexp: '^network.host:'
+    line: 'network.host: 0.0.0.0'
+    state: present
+  notify: restart opensearch
+
+- name: Enable and start OpenSearch service
+  systemd:
+    name: opensearch
+    enabled: yes
+    state: started
+    daemon_reload: yes

@@ -1,0 +1,46 @@
+---
+- name: Include APT configuration tasks
+  include_tasks: apt_config.yml
+  when: ansible_os_family == "Debian"
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: Install common packages
+  apt:
+    name: "{{ common_packages }}"
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Configure timezone
+  timezone:
+    name: UTC
+
+- name: Set hostname
+  hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Ensure iptables is available
+  apt:
+    name: iptables
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Set up basic firewall rules
+  iptables:
+    chain: INPUT
+    policy: ACCEPT
+  become: yes
+
+- name: Configure basic sysctl settings for networking
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  with_items:
+    - { key: 'net.ipv4.ip_forward', value: '1' }
+    - { key: 'net.ipv4.conf.all.rp_filter', value: '1' }

@@ -1,0 +1,100 @@
+---
+- name: Load SSH access data from Terraform
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Set fact with terraform data
+      set_fact:
+        terraform_data: "{{ lookup('file', 'ssh_access.json') | from_json }}"
+      no_log: yes
+    
+    - name: Extract DHCP ranges from terraform
+      set_fact:
+        dhcp_range: "{{ terraform_data.dhcp_ranges | default([{'subnet': '192.168.0.0', 'netmask': '255.255.255.0', 'range_start': '192.168.0.150', 'range_end': '192.168.0.200'}]) | first }}"
+
+- name: Pre-flight checks for all hosts
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Check connectivity
+      ping:
+      register: ping_result
+      ignore_errors: yes
+      
+    - name: Report host connectivity
+      debug:
+        msg: "Host {{ inventory_hostname }} is {{ 'reachable' if ping_result is success else 'UNREACHABLE' }}"
+        
+    - name: Check Python availability (required for gather_facts)
+      raw: which python3 || which python
+      register: python_check
+      changed_when: false
+      ignore_errors: yes
+      
+    - name: Ensure minimal Python is installed
+      raw: apt-get update -q && apt-get install -y python3-minimal
+      when: python_check.rc != 0
+      ignore_errors: yes
+
+- name: Common setup for all hosts
+  hosts: all
+  become: yes
+  gather_facts: yes
+  roles:
+    - common
+
+- name: Configure Suricata
+  hosts: suricata
+  become: yes
+  roles:
+    - suricata
+  ignore_errors: yes
+
+- name: Configure Filebeat (even if Suricata failed)
+  hosts: suricata
+  become: yes
+  roles:
+    - filebeat
+
+- name: Configure OpenSearch
+  hosts: opensearch
+  become: yes
+  roles:
+    - opensearch
+    - opensearch_dashboard
+
+- name: Configure Pi-hole DNS
+  hosts: pihole
+  become: yes
+  roles:
+    - pihole
+
+- name: Configure DHCP Server
+  hosts: dhcp
+  become: yes
+  roles:
+    - dhcp
+
+- name: Finalize setup and verify connections
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Display service access information
+      debug:
+        msg:
+          - "Setup completed successfully!"
+          - "Services available:"
+          - "Pi-hole admin: http://{{ groups['pihole'][0] }}/admin"
+          - "OpenSearch dashboard: http://{{ groups['opensearch'][0] }}:5601"
+          - "Suricata logs shipping to OpenSearch via Filebeat"
+    
+    - name: Check OpenSearch connection
+      uri:
+        url: http://{{ groups['opensearch'][0] }}:9200
+        return_content: yes
+      register: opensearch_result
+      ignore_errors: yes
+      
+    - name: Report OpenSearch status
+      debug:
+        msg: "OpenSearch is {{ opensearch_result.status | default('not available') }}"

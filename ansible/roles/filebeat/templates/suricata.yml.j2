@@ -1,0 +1,6 @@
+- module: suricata
+  eve:
+    enabled: true
+    var.paths: ["/var/log/suricata/eve.json"]
+    var.input: "file"
+    var.tags: ["suricata"]
