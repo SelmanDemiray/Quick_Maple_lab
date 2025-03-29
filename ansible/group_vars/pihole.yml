@@ -18,7 +18,6 @@ pihole_web_admin_path: /admin
 pihole_block_lists:
   # General ad blocking lists
   - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
-  - https://raw.githubusercontent.com/OISD/OISD_Blocklist/main/oisd_big.txt
   - https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt
   - https://adaway.org/hosts.txt
 
@@ -39,7 +38,6 @@ pihole_block_lists:
   - https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Alternate%20versions%20Anti-Malware%20List/AntiMalwareHosts.txt
   - https://osint.digitalside.it/Threat-Intel/lists/latestdomains.txt
   - https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt
-  - https://mirror1.malwaredomains.com/files/justdomains
   - https://raw.githubusercontent.com/RPiList/specials/master/Blocklisten/malware
 
   # Scam & phishing protection
@@ -54,7 +52,5 @@ pihole_block_lists:
 
   # Mobile specific blocking
   - https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/AmazonFireTV.txt
-  - https://raw.githubusercontent.com/llacb47/mischosts/master/apple-telemetry
 
   # Crypto mining protection
-  - https://zerodot1.gitlab.io/CoinBlockerLists/hosts_browser

@@ -86,6 +86,13 @@
           'https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt'
         ]) }}"
 
+    - name: Remove old adlists not in current configuration
+      shell: |
+        sqlite3 /etc/pihole/gravity.db "DELETE FROM adlist WHERE comment = 'Added by Ansible' AND address NOT IN ('$(echo {{ active_block_lists | join("','") }})')"
+      register: removed_lists
+      changed_when: removed_lists.rc == 0
+      ignore_errors: true
+
     - name: Ensure adlists are added using Pi-hole API
       shell: "sqlite3 /etc/pihole/gravity.db \"INSERT OR IGNORE INTO adlist (address, enabled, comment) VALUES ('{{ item }}', 1, 'Added by Ansible')\""
       loop: "{{ active_block_lists }}"
@@ -96,7 +103,7 @@
     - name: Update Pi-hole Gravity
       command: pihole -g
       changed_when: false
-      when: adlists_updated is changed
+      when: adlists_updated is changed or removed_lists is changed
       ignore_errors: true
 
 - name: Configure DHCP Server

@@ -50,3 +50,6 @@ Thumbs.db
 *.iml
 *.iws
 *.ipr
+
+
+ansible/fact_cache/
