@@ -18,7 +18,6 @@ Ansible can consume the SSH access information from:
 
 ## Service Management
 - Pi-hole web interface: http://192.168.0.102/admin
-- OpenSearch dashboard: http://192.168.0.99:5601 (Authentication required: admin/C87V48V593245ks99f)
-- OpenSearch API (secure): https://192.168.0.99:9200
+- OpenSearch dashboard: http://192.168.0.99:5601
 
 This file is automatically regenerated when containers are recreated.
