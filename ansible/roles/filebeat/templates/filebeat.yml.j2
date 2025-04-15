@@ -16,11 +16,13 @@ setup.template.settings:
 
 setup.kibana:
   host: "{{ opensearch.host }}:{{ opensearch.dashboard_port }}"
+  ssl.verification_mode: none
 
 output.elasticsearch:
   hosts: ["{{ opensearch.host }}:{{ opensearch.port }}"]
   username: "{{ opensearch.username }}"
   password: "{{ opensearch.password }}"
+  ssl.verification_mode: none
   
 processors:
   - add_host_metadata:

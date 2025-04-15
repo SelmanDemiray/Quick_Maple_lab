@@ -3,13 +3,13 @@ _meta:
   config_version: 2
 
 admin:
-  hash: "{{ 'C87V48V593245ks99f' | password_hash('bcrypt') }}"
+  hash: "$2a$12$OSznpF.4eHGrQRdvonZBFeqN3LzUSkAwHDUQZZtLrh1wTXHkT3CmO"
   reserved: true
   backend_roles:
   - "admin"
   description: "Admin user"
 
 kibanaserver:
-  hash: "{{ 'kibanaserver' | password_hash('bcrypt') }}"
+  hash: "$2a$12$4AcgAt3xwOWadA5s5blL6ev39OXDNhmOesEoo33eZtrq2N0YrU3H."
   reserved: true
   description: "Kibana server user"

@@ -263,6 +263,14 @@
   when: securityadmin_check.stat.exists
   become: yes
 
+- name: Wait for OpenSearch service to be fully operational
+  wait_for:
+    host: localhost
+    port: 9200
+    delay: 15
+    timeout: 180
+  register: opensearch_available
+
 - name: Initialize security index
   command: >
     /opt/opensearch/plugins/opensearch-security/tools/securityadmin.sh 
@@ -275,6 +283,24 @@
   become_user: opensearch
   when: security_settings.changed and cert_files is defined and 
         cert_files.results | selectattr('item', 'equalto', 'esnode.pem') | map(attribute='stat.exists') | list | first and
+        cert_files.results | selectattr('item', 'equalto', 'esnode-key.pem') | map(attribute='stat.exists') | list | first and
+        cert_files.results | selectattr('item', 'equalto', 'root-ca.pem') | map(attribute='stat.exists') | list | first and
+        securityadmin_check.stat.exists and opensearch_available is success
+  ignore_errors: yes
+  notify: restart opensearch
+
+- name: Force security index update
+  command: >
+    /opt/opensearch/plugins/opensearch-security/tools/securityadmin.sh 
+    -cd /opt/opensearch/config/opensearch-security/ 
+    -icl -nhnv 
+    -cacert /opt/opensearch/config/certificates/root-ca.pem 
+    -cert /opt/opensearch/config/certificates/esnode.pem 
+    -key /opt/opensearch/config/certificates/esnode-key.pem
+    -rl
+  become: yes
+  become_user: opensearch
+  when: cert_files.results | selectattr('item', 'equalto', 'esnode.pem') | map(attribute='stat.exists') | list | first and
         cert_files.results | selectattr('item', 'equalto', 'esnode-key.pem') | map(attribute='stat.exists') | list | first and
         cert_files.results | selectattr('item', 'equalto', 'root-ca.pem') | map(attribute='stat.exists') | list | first and
         securityadmin_check.stat.exists

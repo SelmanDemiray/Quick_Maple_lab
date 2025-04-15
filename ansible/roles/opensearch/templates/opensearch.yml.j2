@@ -17,9 +17,18 @@ plugins.security.ssl.http.pemcert_filepath: /opt/opensearch/config/certificates/
 plugins.security.ssl.http.pemkey_filepath: /opt/opensearch/config/certificates/esnode-key.pem
 plugins.security.ssl.http.pemtrustedcas_filepath: /opt/opensearch/config/certificates/root-ca.pem
 plugins.security.allow_default_init_securityindex: true
+plugins.security.authcz.admin_dn:
+  - "CN=opensearch-node,O=OpenSearch,L=Mountain View,ST=CA,C=US"
 
 path.data: /var/lib/opensearch
 path.logs: /var/log/opensearch
 
 # Performance settings
 bootstrap.memory_lock: true
+
+# Additional stability settings
+action.auto_create_index: .security,.opendistro-*,.opensearch-*,*
+http.compression: true
+indices.recovery.max_bytes_per_sec: 40mb
+indices.memory.index_buffer_size: 10%
+cluster.routing.allocation.disk.threshold_enabled: false

@@ -29,7 +29,7 @@ opensearch:
   port: 9200
   dashboard_port: 5601
   username: admin
-  password: admin
+  password: "C87V48V593245ks99f"
   memory_limit: 8g
   
 # Common packages to install on all hosts

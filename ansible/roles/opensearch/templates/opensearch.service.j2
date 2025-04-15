@@ -12,6 +12,9 @@ PrivateTmp=true
 User=opensearch
 Group=opensearch
 
+Environment=OPENSEARCH_HOME=/opt/opensearch
+Environment=OPENSEARCH_PATH_CONF=/opt/opensearch/config
+
 ExecStart=/opt/opensearch/bin/opensearch -d -p /var/run/opensearch/opensearch.pid
 
 # Specifies the maximum file descriptor number
@@ -22,6 +25,9 @@ LimitMEMLOCK=infinity
 LimitAS=infinity
 # Maximum file size
 LimitFSIZE=infinity
+
+# Startup timeout increased to allow for proper initialization
+TimeoutStartSec=180
 
 # Restart service after 10s if node crashes or is killed
 Restart=always
