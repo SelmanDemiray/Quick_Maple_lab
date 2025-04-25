@@ -1,0 +1,6 @@
+---
+opensearch:
+  host: "192.168.0.99"  # Your OpenSearch server IP (from terraform.tfvars)
+  port: 9200
+  username: "kibanaserver"  # Use kibanaserver or admin
+  password: "kibanaserver"  # Use matching password

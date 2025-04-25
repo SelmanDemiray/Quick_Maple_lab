@@ -50,11 +50,11 @@
     - suricata
   ignore_errors: yes
 
-- name: Configure Filebeat (even if Suricata failed)
+- name: Configure Data Prepper for Suricata logs
   hosts: suricata
   become: yes
   roles:
-    - filebeat
+    - data_prepper
 
 - name: Configure OpenSearch
   hosts: opensearch
@@ -148,3 +148,154 @@
     - name: Report OpenSearch status
       debug:
         msg: "OpenSearch is {{ opensearch_result.status | default('not available') }}"
+
+- name: Health checks for Suricata → Data Prepper → OpenSearch pipeline
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Check Suricata service status
+      ansible.builtin.shell: "ansible suricata -m systemd -a 'name=suricata state=started'"
+      register: suricata_service
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Report Suricata service status
+      debug:
+        msg: "{{ suricata_service.stdout_lines | default(['No output']) }}"
+
+    - name: Check Suricata eve.json log file
+      ansible.builtin.shell: "ansible suricata -m stat -a 'path=/var/log/suricata/eve.json'"
+      register: suricata_eve
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Report Suricata eve.json status
+      debug:
+        msg: "{{ suricata_eve.stdout_lines | default(['No output']) }}"
+
+    - name: Check Data Prepper service status
+      ansible.builtin.shell: "ansible suricata -m systemd -a 'name=data-prepper state=started'"
+      register: dataprepper_service
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Report Data Prepper service status
+      debug:
+        msg: "{{ dataprepper_service.stdout_lines | default(['No output']) }}"
+
+    - name: Check Data Prepper health endpoint
+      ansible.builtin.shell: "ansible suricata -m uri -a 'url=http://localhost:2021/health_check return_content=yes status_code=200'"
+      register: dataprepper_health
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Report Data Prepper health
+      debug:
+        msg: "{{ dataprepper_health.stdout_lines | default(['No output']) }}"
+
+    - name: Check OpenSearch service status
+      ansible.builtin.shell: "ansible opensearch -m systemd -a 'name=opensearch state=started'"
+      register: opensearch_service
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Report OpenSearch service status
+      debug:
+        msg: "{{ opensearch_service.stdout_lines | default(['No output']) }}"
+
+    - name: Check OpenSearch suricata-logs index
+      ansible.builtin.uri:
+        url: "https://{{ hostvars[groups['opensearch'][0]]['ansible_host'] | default(groups['opensearch'][0]) }}:9200/suricata-logs/_search"
+        user: admin
+        password: "{{ opensearch.password }}"
+        validate_certs: no
+        return_content: yes
+        status_code: 200
+      register: suricata_logs_check
+      ignore_errors: yes
+
+    - name: Report Suricata logs in OpenSearch
+      debug:
+        msg:
+          - "Suricata logs in OpenSearch: {{ suricata_logs_check.json.hits.total.value | default(0) }}"
+          - "Sample log: {{ suricata_logs_check.json.hits.hits[0]._source | default('No logs found') }}"
+      when: suricata_logs_check is defined and suricata_logs_check.json.hits.total.value | default(0) > 0
+
+    - name: Report if no Suricata logs found in OpenSearch
+      debug:
+        msg: "No Suricata logs found in OpenSearch index!"
+      when: suricata_logs_check is not defined or suricata_logs_check.json.hits.total.value | default(0) == 0
+
+    - name: Final pipeline health summary
+      debug:
+        msg:
+          - "Suricata service: {{ 'OK' if suricata_service.rc == 0 else 'FAILED' }}"
+          - "Data Prepper service: {{ 'OK' if dataprepper_service.rc == 0 else 'FAILED' }}"
+          - "OpenSearch service: {{ 'OK' if opensearch_service.rc == 0 else 'FAILED' }}"
+          - "Suricata logs in OpenSearch: {{ suricata_logs_check.json.hits.total.value | default(0) }}"
+
+- name: Health checks for Suricata → Data Prepper → OpenSearch pipeline
+  hosts: suricata
+  become: yes
+  gather_facts: no
+  vars:
+    opensearch_host: "{{ hostvars[groups['opensearch'][0]]['ansible_host'] | default(groups['opensearch'][0]) }}"
+    opensearch_port: "{{ hostvars[groups['opensearch'][0]]['opensearch']['port'] | default(9200) }}"
+    opensearch_username: "{{ hostvars[groups['opensearch'][0]]['opensearch']['username'] | default('admin') }}"
+    opensearch_password: "{{ hostvars[groups['opensearch'][0]]['opensearch']['password'] | default('admin') }}"
+  tasks:
+    - name: Check if Suricata log file exists and is readable
+      stat:
+        path: /var/log/suricata/eve.json
+      register: suricata_log
+
+    - name: Fail if Suricata log is missing
+      fail:
+        msg: "Suricata eve.json log not found or not readable!"
+      when: not suricata_log.stat.exists or not suricata_log.stat.readable
+
+    - name: Show a sample of Suricata log
+      shell: head -n 1 /var/log/suricata/eve.json
+      register: suricata_sample
+      changed_when: false
+
+    - name: Debug Suricata log sample
+      debug:
+        msg: "{{ suricata_sample.stdout }}"
+
+    - name: Check if Data Prepper is running
+      shell: systemctl is-active data-prepper
+      register: dp_status
+      changed_when: false
+
+    - name: Fail if Data Prepper is not running
+      fail:
+        msg: "Data Prepper is not running!"
+      when: dp_status.stdout != "active"
+
+    - name: Check Data Prepper logs for errors
+      shell: tail -n 20 /var/log/data-prepper/data-prepper.log
+      register: dp_logs
+      changed_when: false
+
+    - name: Debug Data Prepper logs
+      debug:
+        msg: "{{ dp_logs.stdout }}"
+
+    - name: Check OpenSearch index for Suricata logs
+      uri:
+        url: "https://{{ opensearch_host }}:{{ opensearch_port }}/suricata-logs/_search"
+        user: "{{ opensearch_username }}"
+        password: "{{ opensearch_password }}"
+        method: GET
+        validate_certs: false
+      register: os_response
+
+    - name: Fail if OpenSearch index is empty
+      fail:
+        msg: "No Suricata logs found in OpenSearch!"
+      when: os_response.json.hits.total.value == 0
+
+    - name: Debug OpenSearch log sample
+      debug:
+        msg: "{{ os_response.json.hits.hits[0]._source if os_response.json.hits.hits|length > 0 else 'No logs found' }}"

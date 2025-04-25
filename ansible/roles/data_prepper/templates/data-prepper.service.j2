@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenSearch Data Prepper
+After=network.target suricata.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/data-prepper
+# Wait for Suricata eve.json to exist before starting
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 30); do [ -r /var/log/suricata/eve.json ] && exit 0; sleep 2; done; exit 1'
+ExecStart=/opt/data-prepper/bin/data-prepper /opt/data-prepper/pipelines/pipeline.yaml /opt/data-prepper/config/data-prepper-config.yaml
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

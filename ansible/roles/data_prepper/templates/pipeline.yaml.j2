@@ -1,0 +1,14 @@
+---
+entry-pipeline:
+  source:
+    file:
+      path: /var/log/suricata/eve.json
+  processor:
+    - parse_json: {}
+  sink:
+    - opensearch:
+        hosts: ["https://{{ opensearch.host }}:{{ opensearch.port }}"]
+        username: "{{ opensearch.username }}"
+        password: "{{ opensearch.password }}"
+        index: "suricata-logs"
+        insecure: true

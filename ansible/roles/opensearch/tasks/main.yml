@@ -250,6 +250,26 @@
   register: security_settings
   notify: restart opensearch
 
+- name: Copy roles.yml template
+  template:
+    src: roles.yml
+    dest: /opt/opensearch/config/opensearch-security/roles.yml
+    owner: opensearch
+    group: opensearch
+    mode: '0640'
+  register: roles_settings
+  notify: restart opensearch
+
+- name: Copy roles_mapping.yml template
+  template:
+    src: roles_mapping.yml
+    dest: /opt/opensearch/config/opensearch-security/roles_mapping.yml
+    owner: opensearch
+    group: opensearch
+    mode: '0640'
+  register: roles_mapping_settings
+  notify: restart opensearch
+
 - name: Check if securityadmin.sh exists
   stat:
     path: /opt/opensearch/plugins/opensearch-security/tools/securityadmin.sh
@@ -281,11 +301,14 @@
     -key /opt/opensearch/config/certificates/esnode-key.pem
   become: yes
   become_user: opensearch
-  when: security_settings.changed and cert_files is defined and 
-        cert_files.results | selectattr('item', 'equalto', 'esnode.pem') | map(attribute='stat.exists') | list | first and
-        cert_files.results | selectattr('item', 'equalto', 'esnode-key.pem') | map(attribute='stat.exists') | list | first and
-        cert_files.results | selectattr('item', 'equalto', 'root-ca.pem') | map(attribute='stat.exists') | list | first and
-        securityadmin_check.stat.exists and opensearch_available is success
+  when: 
+    (security_settings.changed or roles_settings.changed or roles_mapping_settings.changed)
+    and cert_files is defined
+    and cert_files.results | selectattr('item', 'equalto', 'esnode.pem') | map(attribute='stat.exists') | list | first
+    and cert_files.results | selectattr('item', 'equalto', 'esnode-key.pem') | map(attribute='stat.exists') | list | first
+    and cert_files.results | selectattr('item', 'equalto', 'root-ca.pem') | map(attribute='stat.exists') | list | first
+    and securityadmin_check.stat.exists
+    and opensearch_available is success
   ignore_errors: yes
   notify: restart opensearch
 
