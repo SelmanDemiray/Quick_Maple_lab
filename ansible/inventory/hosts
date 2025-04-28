@@ -9,7 +9,7 @@ all:
       hosts:
         opensearch-dashboard:
           ansible_host: 192.168.0.99
-    pihole:
+    pihole_group:
       hosts:
         pihole:
           ansible_host: 192.168.0.102
@@ -17,3 +17,6 @@ all:
       hosts:
         suricata-filebeat:
           ansible_host: 192.168.0.97
+
+[suricata]
+suricata-filebeat ansible_host=192.168.0.97

@@ -1,4 +1,15 @@
 ---
+- name: Ensure inventory_from_terraform.py is executable
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Set executable permission on inventory_from_terraform.py
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/inventory_from_terraform.py"
+        mode: '0755'
+        state: file
+      become: false
+
 - name: Load SSH access data from Terraform
   hosts: localhost
   gather_facts: no
@@ -64,13 +75,13 @@
     - opensearch_dashboard
 
 - name: Configure Pi-hole DNS
-  hosts: pihole
+  hosts: pihole_group
   become: yes
   roles:
     - pihole
 
 - name: Ensure Pi-hole adlists are up to date
-  hosts: pihole
+  hosts: pihole_group
   become: yes
   tasks:
     - name: Install sqlite3 package
@@ -121,7 +132,7 @@
         msg:
           - "Setup completed successfully!"
           - "Services available:"
-          - "Pi-hole admin: http://{{ groups['pihole'][0] }}/admin"
+          - "Pi-hole admin: http://{{ groups['pihole_group'][0] }}/admin"
           - "OpenSearch dashboard: http://{{ groups['opensearch'][0] }}:5601"
           - "Suricata logs shipping to OpenSearch via Filebeat"
     

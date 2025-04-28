@@ -26,25 +26,20 @@ def build_inventory():
     
     # Initialize inventory structure
     inventory = {
-        '_meta': {
-            'hostvars': {}
-        }
+        'all': {'hosts': []},
+        '_meta': {'hostvars': {}},
     }
     
     # Process containers and build inventory groups
     for name, container in ssh_data['containers'].items():
         # Add host to its groups
         for group in container.get('groups', []):
-            if group not in inventory:
-                inventory[group] = {'hosts': []}
-            inventory[group]['hosts'].append(container['hostname'])
+            inventory.setdefault(group, {'hosts': []})['hosts'].append(container['hostname'])
         
-        # Add an 'all' group if it doesn't exist
-        if 'all' not in inventory:
-            inventory['all'] = {'hosts': []}
+        # always add to all
         inventory['all']['hosts'].append(container['hostname'])
         
-        # Add host variables
+        # hostvars
         inventory['_meta']['hostvars'][container['hostname']] = {
             'ansible_host': container['ip'],
             'ansible_user': container['user'],
