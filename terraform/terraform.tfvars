@@ -2,6 +2,7 @@
 proxmox_api_url = "https://192.168.0.7:8006/api2/json"
 proxmox_api_token_id = "root@pam!terraform"
 proxmox_api_token_secret = "835ff11e-c7b2-4836-98c9-7fb6761d3fad"
+proxmox_tls_insecure = true
 
 # SSH credentials for provisioning
 ssh_user = "root"
@@ -11,6 +12,10 @@ ssh_password = "ansible123"  # Changed to a simpler password without special cha
 # Service passwords
 pihole_webpassword = "5jb93Q23p5586MGi7j"
 opensearch_password = "C87V48V593245ks99f"
+
+# Network configuration
+gateway_ip = "192.168.0.1"
+subnet_mask = "24"
 
 # Container configurations
 containers = {
@@ -94,9 +99,9 @@ containers = {
 # DHCP server configuration
 dhcp_server_ranges = [
   {
-    range_start = "192.168.0.2"
-    range_end   = "192.168.0.232"
     subnet      = "192.168.0.0"
     netmask     = "255.255.255.0"
+    range_start = "192.168.0.2"
+    range_end   = "192.168.0.232"
   }
 ]

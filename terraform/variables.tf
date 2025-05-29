@@ -3,8 +3,8 @@ variable "proxmox_api_url" {
   description = "The Proxmox API URL"
   type        = string
   validation {
-    condition     = can(regex("^https://.+:[0-9]+/api2/json$", var.proxmox_api_url))
-    error_message = "The proxmox_api_url must be a valid URL ending with /api2/json."
+    condition     = can(regex("^https?://", var.proxmox_api_url))
+    error_message = "The proxmox_api_url must be a valid HTTP/HTTPS URL."
   }
 }
 
@@ -20,7 +20,7 @@ variable "proxmox_api_token_secret" {
 }
 
 variable "proxmox_tls_insecure" {
-  description = "Skip TLS verification for Proxmox API"
+  description = "Allow insecure TLS connections to Proxmox"
   type        = bool
   default     = true
 }
@@ -103,6 +103,81 @@ variable "containers" {
     password     = optional(string) # Optional unique password for each container
     tags         = optional(string)
   }))
+  
+  default = {
+    dhcp = {
+      hostname             = "isc-dhcp-server"
+      host                 = "proxmox2"
+      id                   = 1010
+      ip                   = "192.168.0.10"
+      ostemplate          = "local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
+      unprivileged        = true
+      cores               = 2
+      memory              = 2000
+      swap                = 2000
+      storage_type        = "local-lvm"
+      storage_size        = 100
+      start_after_create  = true
+      onboot              = 1
+      features            = { nesting = 0 }
+      tags                = "infra;network"
+      password            = null
+    }
+    opensearch = {
+      hostname             = "opensearch-dashboard"
+      host                 = "proxmox2"
+      id                   = 1099
+      ip                   = "192.168.0.99"
+      ostemplate          = "local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
+      unprivileged        = true
+      cores               = 2
+      memory              = 10000
+      swap                = 10000
+      storage_type        = "local-lvm"
+      storage_size        = 100
+      start_after_create  = true
+      onboot              = 1
+      features            = { nesting = 0 }
+      tags                = "infra;monitoring"
+      password            = null
+    }
+    pihole = {
+      hostname             = "pihole"
+      host                 = "pve"
+      id                   = 102
+      ip                   = "192.168.0.102"
+      ostemplate          = "local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
+      unprivileged        = true
+      cores               = 1
+      memory              = 1270
+      swap                = 1270
+      storage_type        = "local-lvm"
+      storage_size        = 100
+      start_after_create  = true
+      onboot              = 1
+      features            = { nesting = 0 }
+      tags                = "dns;infra"
+      password            = null
+    }
+    suricata = {
+      hostname             = "suricata-filebeat"
+      host                 = "pve"
+      id                   = 197
+      ip                   = "192.168.0.97"
+      ostemplate          = "local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
+      unprivileged        = true
+      cores               = 4
+      memory              = 4000
+      swap                = 4000
+      storage_type        = "local-lvm"
+      storage_size        = 100
+      start_after_create  = true
+      onboot              = 1
+      features            = { nesting = 0 }
+      tags                = "security;monitoring"
+      password            = null
+    }
+  }
 }
 
 # New variable for SSH passwords file

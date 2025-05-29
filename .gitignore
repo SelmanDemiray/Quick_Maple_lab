@@ -25,10 +25,10 @@ terraform.rc
 
 # Ansible files
 *.retry
-**/ansible/.ansible/
-**/ansible/*.log
-**/ansible/.ansible_galaxy
-**/ansible/collections/
+ansible/fact_cache/
+ansible/ssh_*.json
+ansible/id_rsa*
+ansible/SSH_ACCESS_README.md
 
 # OS files
 .DS_Store
@@ -52,4 +52,8 @@ Thumbs.db
 *.ipr
 
 
-ansible/fact_cache/
+# Logs
+*.log
+
+# Backup files
+*.backup
