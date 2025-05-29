@@ -1,0 +1,83 @@
+---
+- name: Ensure inventory_from_terraform.py is executable
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Set executable permission on inventory_from_terraform.py
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/inventory_from_terraform.py"
+        mode: '0755'
+        state: file
+      become: false
+
+- name: Load SSH access data from Terraform
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Set fact with terraform data
+      set_fact:
+        terraform_data: "{{ lookup('file', 'ssh_access.json') | from_json }}"
+      no_log: yes
+
+- name: Pre-flight checks for security monitoring hosts
+  hosts: suricata:opensearch
+  gather_facts: no
+  tasks:
+    - name: Check connectivity
+      ping:
+      register: ping_result
+      ignore_errors: yes
+      
+    - name: Report host connectivity
+      debug:
+        msg: "Host {{ inventory_hostname }} is {{ 'reachable' if ping_result is success else 'UNREACHABLE' }}"
+        
+    - name: Check Python availability (required for gather_facts)
+      raw: which python3 || which python
+      register: python_check
+      changed_when: false
+      ignore_errors: yes
+      
+    - name: Ensure minimal Python is installed
+      raw: apt-get update -q && apt-get install -y python3-minimal
+      when: python_check.rc != 0
+      ignore_errors: yes
+
+- name: Common setup for security monitoring hosts
+  hosts: suricata:opensearch
+  become: yes
+  gather_facts: yes
+  roles:
+    - common
+
+- name: Configure OpenSearch
+  hosts: opensearch
+  become: yes
+  roles:
+    - opensearch
+    - opensearch_dashboard
+
+- name: Configure Suricata
+  hosts: suricata
+  become: yes
+  roles:
+    - suricata
+  ignore_errors: yes
+
+- name: Configure Data Prepper for Suricata logs
+  hosts: suricata
+  become: yes
+  roles:
+    - data_prepper
+
+- name: Display security setup completion
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Display security service access information
+      debug:
+        msg:
+          - "Security monitoring setup completed successfully!"
+          - "Security services available:"
+          - "OpenSearch dashboard: http://{{ groups['opensearch'][0] }}:5601"
+          - "Suricata logs shipping to OpenSearch via Data Prepper"

@@ -1,0 +1,116 @@
+---
+- name: Ensure inventory_from_terraform.py is executable
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Set executable permission on inventory_from_terraform.py
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/inventory_from_terraform.py"
+        mode: '0755'
+        state: file
+      become: false
+
+- name: Load SSH access data from Terraform
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Set fact with terraform data
+      set_fact:
+        terraform_data: "{{ lookup('file', 'ssh_access.json') | from_json }}"
+      no_log: yes
+    
+    - name: Extract DHCP ranges from terraform
+      set_fact:
+        dhcp_range: "{{ terraform_data.dhcp_ranges | default([{'subnet': '192.168.0.0', 'netmask': '255.255.255.0', 'range_start': '192.168.0.2', 'range_end': '192.168.0.253'}]) | first }}"
+
+- name: Pre-flight checks for network infrastructure hosts
+  hosts: dhcp:pihole_group
+  gather_facts: no
+  tasks:
+    - name: Check connectivity
+      ping:
+      register: ping_result
+      ignore_errors: yes
+      
+    - name: Report host connectivity
+      debug:
+        msg: "Host {{ inventory_hostname }} is {{ 'reachable' if ping_result is success else 'UNREACHABLE' }}"
+        
+    - name: Check Python availability (required for gather_facts)
+      raw: which python3 || which python
+      register: python_check
+      changed_when: false
+      ignore_errors: yes
+      
+    - name: Ensure minimal Python is installed
+      raw: apt-get update -q && apt-get install -y python3-minimal
+      when: python_check.rc != 0
+      ignore_errors: yes
+
+- name: Common setup for network infrastructure hosts
+  hosts: dhcp:pihole_group
+  become: yes
+  gather_facts: yes
+  roles:
+    - common
+
+- name: Configure Pi-hole DNS
+  hosts: pihole_group
+  become: yes
+  roles:
+    - pihole
+
+- name: Ensure Pi-hole adlists are up to date
+  hosts: pihole_group
+  become: yes
+  tasks:
+    - name: Install sqlite3 package
+      apt:
+        name: sqlite3
+        state: present
+        
+    - name: Define default adlists if not set in variables
+      set_fact:
+        active_block_lists: "{{ pihole_block_lists | default([
+          'https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts',
+          'https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt',
+          'https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt'
+        ]) }}"
+
+    - name: Remove old adlists not in current configuration
+      shell: |
+        sqlite3 /etc/pihole/gravity.db "DELETE FROM adlist WHERE comment = 'Added by Ansible' AND address NOT IN ('$(echo {{ active_block_lists | join("','") }})')"
+      register: removed_lists
+      changed_when: removed_lists.rc == 0
+      ignore_errors: true
+
+    - name: Ensure adlists are added using Pi-hole API
+      shell: "sqlite3 /etc/pihole/gravity.db \"INSERT OR IGNORE INTO adlist (address, enabled, comment) VALUES ('{{ item }}', 1, 'Added by Ansible')\""
+      loop: "{{ active_block_lists }}"
+      register: adlists_updated
+      changed_when: "'Error:' not in adlists_updated.stderr | default('')"
+      ignore_errors: true
+
+    - name: Update Pi-hole Gravity
+      command: pihole -g
+      changed_when: false
+      when: adlists_updated is changed or removed_lists is changed
+      ignore_errors: true
+
+- name: Configure DHCP Server
+  hosts: dhcp
+  become: yes
+  roles:
+    - dhcp
+
+- name: Display network setup completion
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Display network service access information
+      debug:
+        msg:
+          - "Network infrastructure setup completed successfully!"
+          - "Network services available:"
+          - "Pi-hole admin: http://{{ groups['pihole_group'][0] }}/admin"
+          - "DHCP server configured on: {{ groups['dhcp'][0] }}"

@@ -6,4 +6,5 @@ for ip in 192.168.0.10 192.168.0.97 192.168.0.99 192.168.0.102; do
   ssh-keygen -R "$ip" 2>/dev/null || true
 done
 
+echo "Deploying complete homelab infrastructure..."
 ansible-playbook playbook.yml
